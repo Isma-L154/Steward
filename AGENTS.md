@@ -1,6 +1,6 @@
 # Steward
 
-A GitHub App for the owner's own repositories (account `Isma-L154`). It merges Dependabot patch and minor updates once CI passes, labels major updates and failing ones for the owner, and will check every repository against the owner's engineering rules and feed the hub (`hub.cloudils.com`). It runs as a Python Worker on Cloudflare at `steward.cloudils.com`. The design is in `docs/superpowers/specs/2026-10-18-steward-design.md`.
+A GitHub App for the owner's own repositories (account `Isma-L154`). It merges Dependabot patch and minor updates once CI passes, labels major updates and failing ones for the owner, and checks every repository against the owner's engineering rules, keeping one "Repository standards" issue per repository. The API for the hub (`hub.cloudils.com`) is built separately by the owner. It runs as a Python Worker on Cloudflare at `steward.cloudils.com`. The design is in `docs/superpowers/specs/2026-10-18-steward-design.md`.
 
 ## Stack
 
@@ -9,11 +9,11 @@ A GitHub App for the owner's own repositories (account `Isma-L154`). It merges D
 - **Package manager:** uv (`uv.lock`) with `pywrangler`; npm only for `wrangler` (`package-lock.json`)
 - **Database:** none; Durable Object storage holds small per-repository state (rebase requests)
 - **Deployment target:** Cloudflare Workers, custom domain `steward.cloudils.com`, deployed by `.github/workflows/deploy.yml` from `main`
-- **Key libraries:** `pydantic` (webhook payload validation); the runtime's WebCrypto (`crypto.subtle`) signs the RS256 App JWT; dev: pytest, hypothesis, httpx, ruff, mypy, `cryptography` (reference signatures in tests)
+- **Key libraries:** `pydantic` (webhook payload validation), `PyYAML` (workflow and Dependabot files); the runtime's WebCrypto (`crypto.subtle`) signs the RS256 App JWT; dev: pytest, hypothesis, httpx, ruff, mypy, `cryptography` (reference signatures in tests)
 
 ## Commands
 
-- Dev server: `uv run pywrangler dev` (needs `.dev.vars` with `APP_ID`, `PRIVATE_KEY`, `WEBHOOK_SECRET`; see `.github/actions/start-dev-server/action.yml` for a throwaway set)
+- Dev server: `uv run pywrangler dev --test-scheduled` (needs `.dev.vars` with `APP_ID`, `PRIVATE_KEY`, `WEBHOOK_SECRET`; see `.github/actions/start-dev-server/action.yml` for a throwaway set)
   - Windows with the repo outside `C:`: Pyodide runs inside Node and only sees the current drive, so the uv cache and uv-managed Pythons must live on the repo's drive. In PowerShell: `$env:UV_CACHE_DIR='D:\.uv\cache'; $env:UV_PYTHON_INSTALL_DIR='D:\.uv\python'; uv run pywrangler dev`
 - Build: `uv run pywrangler deploy --dry-run --outdir .wrangler/dry-run`
 - Test (unit): `uv run pytest`
@@ -23,8 +23,8 @@ A GitHub App for the owner's own repositories (account `Isma-L154`). It merges D
 
 ## Architecture & Conventions
 
-- `src/steward/` is a pure Python core with no Workers imports, tested on CPython: `webhooks/` (signature, payload parsing), `github/` (models, App auth, REST client), `dependabot/` (update type, CI verdict, decision table, service).
-- `src/steward/worker/` holds the thin runtime adapters: `entry.py` (`Default`: `/health`, `/webhook`), `merge_queue.py` (one `MergeQueue` Durable Object per repository, serialized with an `asyncio.Lock`), `fetch_http.py`, `rebase_memory.py`. `src/entry.py` is the shim Wrangler loads.
+- `src/steward/` is a pure Python core with no Workers imports, tested on CPython: `webhooks/` (signature, payload parsing), `github/` (models, App auth, the shared `GitHubApi` transport with GraphQL, the Dependabot and standards clients), `dependabot/` (update type, CI verdict, decision table, service), `standards/` (repository snapshot, one module per group of checks, rule registry, issue body, service, weekly sweep), `repos.py` (which repositories are managed: not archived, no `steward-ignore` topic).
+- `src/steward/worker/` holds the thin runtime adapters: `entry.py` (`Default`: `/health`, `/webhook`), `merge_queue.py` (one `MergeQueue` Durable Object per repository, serialized with an `asyncio.Lock`), `standards_audit.py` (one `StandardsAudit` call audits one repository, so each audit has its own 50-subrequest budget on the free plan), `weekly_sweep.py` (the cron's fan-out), `fetch_http.py`, `branch_update_memory.py`. `src/entry.py` is the shim Wrangler loads.
 - Services depend on small `Protocol` ports (`dependabot/ports.py`, `github/http.py`); tests use in-memory fakes (`tests/dependabot/fakes.py`, `tests/github/fake_http.py`), never network mocks.
 - Decisions are pure functions over frozen dataclasses (`decide(Facts) -> Decision`); side effects live in the service.
 - Anything unclear fails closed: unknown update type counts as major, a missing required check keeps CI pending, no required checks means no auto-merge.
