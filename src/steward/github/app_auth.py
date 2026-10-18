@@ -45,6 +45,14 @@ async def bot_login(http: HttpClient, app_id: str, signer: Signer, now: int) -> 
     return f"{json.loads(response.body)['slug']}[bot]"
 
 
+async def installation_ids(http: HttpClient, app_id: str, signer: Signer, now: int) -> list[int]:
+    headers = {**API_HEADERS, "Authorization": f"Bearer {await app_jwt(app_id, signer, now)}"}
+    response = await http.request("GET", f"{API}/app/installations?per_page=100", headers)
+    if response.status != 200:  # noqa: PLR2004 - GitHub's "OK"
+        raise GitHubError(response.status, "/app/installations")
+    return [int(item["id"]) for item in json.loads(response.body)]
+
+
 class InstallationTokens:
     def __init__(
         self, http: HttpClient, app_id: str, signer: Signer, clock: Callable[[], float]

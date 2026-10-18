@@ -8,7 +8,7 @@ from steward.github.api import GitHubApi
 from steward.github.app_auth import InstallationTokens
 from steward.github.client import GitHubClient
 from steward.github.models import RepoRef
-from steward.github.standards_client import StandardsClient, TrackingIssue
+from steward.github.standards_client import InstalledRepo, StandardsClient, TrackingIssue
 from steward.standards.snapshot import CommitInfo, MergedPr
 from tests.github.fake_http import FakeHttp
 from tests.github.signer import CryptographySigner
@@ -193,3 +193,21 @@ async def test_reopening_sends_no_state_reason(http: FakeHttp, client: Standards
     await client.update_issue(REPO, 7, "broken again", "open")
     sent = next(r for r in http.requests if r.path == f"{BASE}/issues/7").json()
     assert sent == {"body": "broken again", "state": "open"}
+
+
+async def test_installed_repositories(http: FakeHttp, client: StandardsClient) -> None:
+    http.on(
+        "GET",
+        "/installation/repositories",
+        body={
+            "total_count": 2,
+            "repositories": [
+                {"name": "a", "owner": {"login": "o"}, "archived": False, "topics": ["x"]},
+                {"name": "b", "owner": {"login": "o"}, "archived": True},
+            ],
+        },
+    )
+    assert await client.installed_repositories() == [
+        InstalledRepo(RepoRef("o", "a"), archived=False, topics=("x",)),
+        InstalledRepo(RepoRef("o", "b"), archived=True, topics=()),
+    ]

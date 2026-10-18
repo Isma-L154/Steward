@@ -50,6 +50,13 @@ _WORKFLOW_SUFFIXES = (".yml", ".yaml")
 
 
 @dataclass(frozen=True)
+class InstalledRepo:
+    repo: RepoRef
+    archived: bool
+    topics: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class TrackingIssue:
     number: int
     state: str
@@ -121,6 +128,18 @@ class StandardsClient:
                 and datetime.fromisoformat(node["mergedAt"]) >= since
             ],
         )
+
+    async def installed_repositories(self) -> list[InstalledRepo]:
+        # One page: the account has far fewer than 100 repositories.
+        data = await self._api.get("/installation/repositories?per_page=100")
+        return [
+            InstalledRepo(
+                RepoRef(item["owner"]["login"], item["name"]),
+                archived=bool(item.get("archived")),
+                topics=tuple(item.get("topics") or ()),
+            )
+            for item in data["repositories"]
+        ]
 
     async def tracking_issue(self, repo: RepoRef, creator: str) -> TrackingIssue | None:
         issues = await self._api.get(
