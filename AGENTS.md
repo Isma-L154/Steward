@@ -14,6 +14,7 @@ A GitHub App for the owner's own repositories (account `Isma-L154`). It merges D
 ## Commands
 
 - Dev server: `uv run pywrangler dev` (needs `.dev.vars` with `APP_ID`, `PRIVATE_KEY`, `WEBHOOK_SECRET`; see `.github/actions/start-dev-server/action.yml` for a throwaway set)
+  - Windows with the repo outside `C:`: Pyodide runs inside Node and only sees the current drive, so the uv cache and uv-managed Pythons must live on the repo's drive. In PowerShell: `$env:UV_CACHE_DIR='D:\.uv\cache'; $env:UV_PYTHON_INSTALL_DIR='D:\.uv\python'; uv run pywrangler dev`
 - Build: `uv run pywrangler deploy --dry-run --outdir .wrangler/dry-run`
 - Test (unit): `uv run pytest`
 - Test (e2e): no UI; integration tests against the dev server: `uv run pytest -m integration`
