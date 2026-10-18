@@ -58,6 +58,10 @@ class GitHubClient:
             labels=frozenset(label["name"] for label in data["labels"]),
         )
 
+    async def open_dependabot_prs(self, repo: RepoRef) -> list[int]:
+        pulls = await self._get(f"/repos/{repo.full_name}/pulls?state=open&per_page=100")
+        return [pull["number"] for pull in pulls if pull["user"]["login"] == "dependabot[bot]"]
+
     async def pull_request_commits(self, repo: RepoRef, number: int) -> list[Commit]:
         data = await self._get(f"/repos/{repo.full_name}/pulls/{number}/commits{_PAGE}")
         return [

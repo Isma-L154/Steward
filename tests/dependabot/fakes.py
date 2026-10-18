@@ -62,13 +62,19 @@ class FakeGitHub:
     mergeable_sequence: Sequence[bool | None] = ()
     writes: list[tuple[Any, ...]] = field(default_factory=list)
     pull_request_reads: int = 0
+    open_numbers: Sequence[int] = ()
+    read_numbers: list[int] = field(default_factory=list)
 
     async def pull_request(self, repo: RepoRef, number: int) -> PullRequest:
         self.pull_request_reads += 1
+        self.read_numbers.append(number)
         if not self.mergeable_sequence:
             return self.pr
         index = min(self.pull_request_reads, len(self.mergeable_sequence)) - 1
         return replace(self.pr, mergeable=self.mergeable_sequence[index])
+
+    async def open_dependabot_prs(self, repo: RepoRef) -> list[int]:
+        return list(self.open_numbers)
 
     async def pull_request_commits(self, repo: RepoRef, number: int) -> list[Commit]:
         return list(self.commits)

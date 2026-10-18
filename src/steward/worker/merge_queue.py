@@ -32,7 +32,8 @@ class MergeQueue(DurableObject):
         self._own_login: str | None = None
 
     async def fetch(self, request: Any) -> Response:
-        if urlparse(request.url).path != "/evaluate" or request.method != "POST":
+        path = urlparse(request.url).path
+        if path not in {"/evaluate", "/evaluate-open"} or request.method != "POST":
             return error_response("not_found", HTTPStatus.NOT_FOUND)
         try:
             config = load_config(self.env)
@@ -56,9 +57,13 @@ class MergeQueue(DurableObject):
                     asyncio.sleep,
                     self._own_login,
                 )
+                if path == "/evaluate-open":
+                    decisions = await service.evaluate_open(repo)
+                    print(f"{repo.full_name}: re-evaluated {len(decisions)} open update(s)")
+                    return json_response({"evaluated": len(decisions)}, HTTPStatus.OK)
                 decision = await service.evaluate(repo, job["number"])
         except GitHubError as error:
-            print(f"{repo.full_name}#{job['number']}: {error}")
+            print(f"{repo.full_name}#{job.get('number', 'open')}: {error}")
             return error_response("github_error", HTTPStatus.BAD_GATEWAY)
         print(f"{repo.full_name}#{job['number']}: {decision.kind} {decision.label or ''}")
         return json_response({"decision": decision.kind.value}, HTTPStatus.OK)

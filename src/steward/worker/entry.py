@@ -72,9 +72,19 @@ class Default(WorkerEntrypoint):
             await self.env.MERGE_QUEUE.getByName(pr.repo.full_name).fetch(
                 "https://queue/evaluate", method="POST", body=json.dumps(job)
             )
-        for audit in audits:
-            await request_audit(self.env, audit.installation_id, audit.repo)
-        return json_response({"queued": len(pull_requests) + len(audits)}, HTTPStatus.ACCEPTED)
+        # A push to main is also when other open updates fall behind it.
+        for pushed in audits:
+            job = {
+                "installation_id": pushed.installation_id,
+                "owner": pushed.repo.owner,
+                "name": pushed.repo.name,
+            }
+            await self.env.MERGE_QUEUE.getByName(pushed.repo.full_name).fetch(
+                "https://queue/evaluate-open", method="POST", body=json.dumps(job)
+            )
+            await request_audit(self.env, pushed.installation_id, pushed.repo)
+        queued = len(pull_requests) + 2 * len(audits)
+        return json_response({"queued": queued}, HTTPStatus.ACCEPTED)
 
     async def scheduled(self, controller: Any, env: Any, ctx: Any) -> None:
         try:
