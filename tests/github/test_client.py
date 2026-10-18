@@ -9,6 +9,7 @@ from steward.github.client import GitHubClient
 from steward.github.http import GitHubError
 from steward.github.models import CheckResult, CheckState, Commit, PullRequest, RepoRef
 from tests.github.fake_http import FakeHttp
+from tests.github.signer import CryptographySigner
 
 REPO = RepoRef("Isma-L154", "nextsode")
 BASE = "/repos/Isma-L154/nextsode"
@@ -29,7 +30,11 @@ def http() -> FakeHttp:
 
 @pytest.fixture
 def client(http: FakeHttp, rsa_key: RSAPrivateKey) -> GitHubClient:
-    return GitHubClient(http, InstallationTokens(http, "123", rsa_key, lambda: 1_792_324_800.0), 42)
+    return GitHubClient(
+        http,
+        InstallationTokens(http, "123", CryptographySigner(rsa_key), lambda: 1_792_324_800.0),
+        42,
+    )
 
 
 def _api_requests(http: FakeHttp) -> list[Any]:
@@ -268,7 +273,9 @@ async def test_unexpected_status_raises_github_error_without_token_in_message(
 async def test_failed_token_exchange_raises_github_error(rsa_key: RSAPrivateKey) -> None:
     http = FakeHttp()
     http.on("POST", "/app/installations/42/access_tokens", 401, {"message": "Bad credentials"})
-    client = GitHubClient(http, InstallationTokens(http, "123", rsa_key, lambda: 0.0), 42)
+    client = GitHubClient(
+        http, InstallationTokens(http, "123", CryptographySigner(rsa_key), lambda: 0.0), 42
+    )
     with pytest.raises(GitHubError) as raised:
         await client.behind_by(REPO, "main", "abc")
     assert raised.value.status == 401

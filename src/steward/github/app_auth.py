@@ -2,12 +2,9 @@ import base64
 import json
 from collections.abc import Callable
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 from steward.github.http import GitHubError, HttpClient
-
-if TYPE_CHECKING:
-    from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 API = "https://api.github.com"
 API_HEADERS = {
@@ -21,29 +18,31 @@ _JWT_LIFETIME_SECONDS = 540
 _REFRESH_MARGIN_SECONDS = 300
 
 
+class Signer(Protocol):
+    """RS256: an RSASSA-PKCS1-v1_5 signature over SHA-256 with the App's private key."""
+
+    async def sign(self, data: bytes) -> bytes: ...
+
+
 def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
-def app_jwt(app_id: str, key: RSAPrivateKey, now: int) -> str:
-    # Imported here: cryptography reads entropy on import, forbidden at Worker startup.
-    from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15  # noqa: PLC0415
-    from cryptography.hazmat.primitives.hashes import SHA256  # noqa: PLC0415
-
+async def app_jwt(app_id: str, signer: Signer, now: int) -> str:
     header = _b64url(json.dumps({"alg": "RS256", "typ": "JWT"}).encode())
     claims = {"iat": now - _CLOCK_SKEW_SECONDS, "exp": now + _JWT_LIFETIME_SECONDS, "iss": app_id}
     payload = _b64url(json.dumps(claims).encode())
     signing_input = f"{header}.{payload}".encode()
-    return f"{header}.{payload}.{_b64url(key.sign(signing_input, PKCS1v15(), SHA256()))}"
+    return f"{header}.{payload}.{_b64url(await signer.sign(signing_input))}"
 
 
 class InstallationTokens:
     def __init__(
-        self, http: HttpClient, app_id: str, key: RSAPrivateKey, clock: Callable[[], float]
+        self, http: HttpClient, app_id: str, signer: Signer, clock: Callable[[], float]
     ) -> None:
         self._http = http
         self._app_id = app_id
-        self._key = key
+        self._signer = signer
         self._clock = clock
         self._cache: dict[int, tuple[str, float]] = {}
 
@@ -52,7 +51,7 @@ class InstallationTokens:
         if cached is not None and self._clock() < cached[1] - _REFRESH_MARGIN_SECONDS:
             return cached[0]
         path = f"/app/installations/{installation_id}/access_tokens"
-        jwt = app_jwt(self._app_id, self._key, int(self._clock()))
+        jwt = await app_jwt(self._app_id, self._signer, int(self._clock()))
         headers = {**API_HEADERS, "Authorization": f"Bearer {jwt}"}
         response = await self._http.request("POST", f"{API}{path}", headers)
         if response.status != 201:  # noqa: PLR2004 - GitHub's "Created"

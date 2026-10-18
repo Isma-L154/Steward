@@ -16,6 +16,7 @@ from steward.github.models import RepoRef
 from steward.worker.fetch_http import WorkersFetch
 from steward.worker.rebase_memory import DurableObjectRebaseMemory
 from steward.worker.responses import error_response, json_response
+from steward.worker.webcrypto import WebCryptoSigner
 
 
 class MergeQueue(DurableObject):
@@ -39,9 +40,8 @@ class MergeQueue(DurableObject):
         job = json.loads(await request.text())
         repo = RepoRef(job["owner"], job["name"])
         if self._tokens is None:
-            self._tokens = InstallationTokens(
-                self._http, config.app_id, config.private_key, time.time
-            )
+            signer = WebCryptoSigner(config.private_key_pkcs8)
+            self._tokens = InstallationTokens(self._http, config.app_id, signer, time.time)
         github = GitHubClient(self._http, self._tokens, job["installation_id"])
         service = DependabotService(
             github, DurableObjectRebaseMemory(self.ctx.storage), asyncio.sleep

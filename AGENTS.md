@@ -9,7 +9,7 @@ A GitHub App for the owner's own repositories (account `Isma-L154`). It merges D
 - **Package manager:** uv (`uv.lock`) with `pywrangler`; npm only for `wrangler` (`package-lock.json`)
 - **Database:** none; Durable Object storage holds small per-repository state (rebase requests)
 - **Deployment target:** Cloudflare Workers, custom domain `steward.cloudils.com`, deployed by `.github/workflows/deploy.yml` from `main`
-- **Key libraries:** `cryptography` (RS256 App JWT), `pydantic` (webhook payload validation); dev: pytest, hypothesis, httpx, ruff, mypy
+- **Key libraries:** `pydantic` (webhook payload validation); the runtime's WebCrypto (`crypto.subtle`) signs the RS256 App JWT; dev: pytest, hypothesis, httpx, ruff, mypy, `cryptography` (reference signatures in tests)
 
 ## Commands
 
@@ -28,7 +28,7 @@ A GitHub App for the owner's own repositories (account `Isma-L154`). It merges D
 - Services depend on small `Protocol` ports (`dependabot/ports.py`, `github/http.py`); tests use in-memory fakes (`tests/dependabot/fakes.py`, `tests/github/fake_http.py`), never network mocks.
 - Decisions are pure functions over frozen dataclasses (`decide(Facts) -> Decision`); side effects live in the service.
 - Anything unclear fails closed: unknown update type counts as major, a missing required check keeps CI pending, no required checks means no auto-merge.
-- Never import `cryptography` at module level: it reads entropy on import, which workerd forbids at Worker startup. Import it inside the function that needs it and use `TYPE_CHECKING` for types.
+- No RSA in Python at runtime: the App JWT is signed by `worker/webcrypto.py` with the runtime's native WebCrypto, behind the `Signer` port in `github/app_auth.py`. `cryptography` compiled to WebAssembly exceeds the per-request CPU limit on a fresh instance, Pyodide does not recover after that, and it cannot be imported at startup either (it breaks Pyodide's entropy guard). `github/keys.py` wraps GitHub's PKCS#1 key as the PKCS#8 WebCrypto needs.
 
 ---
 
@@ -154,5 +154,5 @@ QA gate before merge: `code-review` + `differential-review` + (playwright e2e if
 - Don't force a skill that doesn't fit the task just because it's listed here — this file sets *default* discipline and *when* to reach for each tool, not a mandatory checklist for every single change.
 - Project-specific overrides always win over the general defaults above — if a section below contradicts something above, follow the section below.
 
-- `cryptography`, `cffi`, `pydantic` and `pydantic-core` are pinned to the versions on the Pyodide index the Workers runtime uses; they are excluded from the uv cooldown and from Dependabot. Bump them only together with the runtime, and confirm with `uv run pywrangler sync`.
+- `pydantic` and `pydantic-core` are pinned to the versions on the Pyodide index the Workers runtime uses; they are excluded from the uv cooldown and from Dependabot. Bump them only together with the runtime, and confirm with `uv run pywrangler sync`.
 - The App must never leave an AI trace: its comments, labels and issue bodies never name an AI assistant.
