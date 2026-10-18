@@ -8,8 +8,6 @@ updates:
       default-days: 7
     # Pinned to the versions bundled with the Workers Pyodide runtime; newer ones have no Pyodide wheel.
     ignore:
-      - dependency-name: cffi
-      - dependency-name: cryptography
       - dependency-name: pydantic
       - dependency-name: pydantic-core
     groups:

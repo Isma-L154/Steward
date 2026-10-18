@@ -6,12 +6,12 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.14,<3.15"
 dependencies = [
-    "cryptography==47.0.0",
     "pydantic==2.12.5",
 ]
 
 [dependency-groups]
 dev = [
+    "cryptography",
     "httpx",
     "hypothesis>=6.168.0",
     "mypy",
@@ -27,7 +27,7 @@ package = false
 exclude-newer = "7 days"
 # The Pyodide index publishes no upload dates, so the cooldown would hide its wheels.
 # These are pinned to the exact versions bundled with the Workers Pyodide runtime.
-exclude-newer-package = { cffi = false, cryptography = false, pydantic = false, pydantic-core = false }
+exclude-newer-package = { pydantic = false, pydantic-core = false }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -63,7 +63,7 @@ mypy_path = "src"
 # `js` exists only inside the Workers runtime, and the `workers` stubs do not match how the
 # adapters use it: treat both as opaque so the adapters in steward.worker are still type-checked.
 [[tool.mypy.overrides]]
-module = ["workers", "workers.*", "js"]
+module = ["workers", "workers.*", "js", "pyodide", "pyodide.*"]
 follow_imports = "skip"
 ignore_missing_imports = true
 

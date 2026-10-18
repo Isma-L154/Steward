@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from steward.github.keys import InvalidKey, pkcs8_der
 
 
 class MissingConfig(Exception):
@@ -12,7 +11,7 @@ class MissingConfig(Exception):
 @dataclass(frozen=True)
 class Config:
     app_id: str
-    private_key: RSAPrivateKey
+    private_key_pkcs8: bytes
     webhook_secret: bytes
 
 
@@ -23,26 +22,13 @@ def _required(env: Any, name: str) -> str:
     return str(value).strip()
 
 
-def _private_key(pem: str) -> RSAPrivateKey:
-    # Imported here, not at module level: cryptography reads entropy on import, which the
-    # Workers runtime forbids while it loads the Worker's top-level modules.
-    from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey  # noqa: PLC0415
-    from cryptography.hazmat.primitives.serialization import (  # noqa: PLC0415
-        load_pem_private_key,
-    )
-
-    try:
-        key = load_pem_private_key(pem.encode(), password=None)
-    except ValueError as error:
-        raise MissingConfig("PRIVATE_KEY") from error
-    if not isinstance(key, RSAPrivateKey):
-        raise MissingConfig("PRIVATE_KEY")
-    return key
-
-
 def load_config(env: Any) -> Config:
+    try:
+        private_key = pkcs8_der(_required(env, "PRIVATE_KEY"))
+    except InvalidKey as error:
+        raise MissingConfig("PRIVATE_KEY") from error
     return Config(
         app_id=_required(env, "APP_ID"),
-        private_key=_private_key(_required(env, "PRIVATE_KEY")),
+        private_key_pkcs8=private_key,
         webhook_secret=_required(env, "WEBHOOK_SECRET").encode(),
     )

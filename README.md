@@ -46,9 +46,9 @@ GitHub sends a `workflow_run` webhook when a CI run finishes. The Worker verifie
 
 The queue reads the pull request, its commits, the required checks (rulesets and classic branch protection) and every check run and commit status, then a pure decision table (`src/steward/dependabot/decision.py`) says what to do. The update type comes from the metadata block Dependabot writes into its commit message; anything missing or unknown counts as major.
 
-`cryptography` is never imported at module level: it reads entropy on import, which the Workers runtime forbids while it loads the Worker.
+The App JWT is signed with the runtime's native WebCrypto, not with a Python RSA library: RSA compiled to WebAssembly costs more CPU time than a request may use. GitHub's PKCS#1 key is wrapped as PKCS#8 for it (`src/steward/github/keys.py`), and the main Worker never touches the key; only the queue signs, about once an hour per repository.
 
-**Stack:** Python 3.14 · Cloudflare Python Workers · Durable Objects · `cryptography` · `pydantic` · uv + pywrangler
+**Stack:** Python 3.14 · Cloudflare Python Workers · Durable Objects · WebCrypto · `pydantic` · uv + pywrangler
 
 ## Running locally
 

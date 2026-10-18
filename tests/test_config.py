@@ -19,11 +19,13 @@ def _env(rsa_pem: str, **overrides: str) -> SimpleNamespace:
     return SimpleNamespace(**values)
 
 
-def test_load_config_reads_all_three(rsa_pem: str) -> None:
+def test_load_config_reads_all_three(rsa_key: RSAPrivateKey, rsa_pem: str) -> None:
     config = load_config(_env(rsa_pem))
     assert config.app_id == "123"
     assert config.webhook_secret == b"s3cret"
-    assert isinstance(config.private_key, RSAPrivateKey)
+    assert config.private_key_pkcs8 == rsa_key.private_bytes(
+        Encoding.DER, PrivateFormat.PKCS8, NoEncryption()
+    )
 
 
 @pytest.mark.parametrize("missing", NAMES)

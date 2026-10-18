@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives.hashes import SHA256
 
 from steward.github.app_auth import InstallationTokens, app_jwt
 from tests.github.fake_http import FakeHttp
+from tests.github.signer import CryptographySigner
 
 ROUTE = "/app/installations/42/access_tokens"
 
@@ -15,8 +16,10 @@ def _b64url_decode(part: str) -> bytes:
     return base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
 
 
-def test_app_jwt_is_rs256_with_backdated_iat_and_ten_minute_cap(rsa_key: RSAPrivateKey) -> None:
-    token = app_jwt("123", rsa_key, now=1_000_000)
+async def test_app_jwt_is_rs256_with_backdated_iat_and_ten_minute_cap(
+    rsa_key: RSAPrivateKey,
+) -> None:
+    token = await app_jwt("123", CryptographySigner(rsa_key), now=1_000_000)
     header, payload, signature = token.split(".")
     assert json.loads(_b64url_decode(header)) == {"alg": "RS256", "typ": "JWT"}
     assert json.loads(_b64url_decode(payload)) == {"iat": 999_940, "exp": 1_000_540, "iss": "123"}
@@ -35,7 +38,7 @@ class _Clock:
 
 
 def _tokens(http: FakeHttp, clock: _Clock, rsa_key: RSAPrivateKey) -> InstallationTokens:
-    return InstallationTokens(http, "123", rsa_key, clock)
+    return InstallationTokens(http, "123", CryptographySigner(rsa_key), clock)
 
 
 async def test_installation_token_uses_the_app_jwt(rsa_key: RSAPrivateKey) -> None:
