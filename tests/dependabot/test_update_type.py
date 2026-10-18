@@ -59,3 +59,56 @@ def test_unknown_update_type_is_major() -> None:
 def test_metadata_outside_the_block_is_ignored() -> None:
     message = "Bump a\n\nupdate-type: version-update:semver-patch\ndependency-name: a\n"
     assert classify(message) == UpdateType.MAJOR
+
+
+def _indirect(name: str, intro: str) -> str:
+    return (
+        f"chore(deps-dev): Bump {name}\n\n{intro}\n\n---\nupdated-dependencies:\n"
+        f"- dependency-name: {name}\n  dependency-version: 9.9.9\n  dependency-type: indirect\n"
+        "...\n\nSigned-off-by: dependabot[bot] <support@github.com>"
+    )
+
+
+def test_indirect_patch_comes_from_the_stated_versions() -> None:
+    intro = "Bumps [source-map-js](https://github.com/7rulnik/source-map-js) from 1.2.1 to 1.2.2."
+    assert classify(_indirect("source-map-js", intro)) == UpdateType.PATCH
+
+
+def test_indirect_minor_from_a_plain_bump_line() -> None:
+    assert classify(_indirect("lodash", "Bump lodash from 4.17.21 to 4.18.0")) == UpdateType.MINOR
+
+
+def test_indirect_with_v_prefixed_versions() -> None:
+    intro = "Bumps [a](https://x) from v2.3.0 to v2.3.4."
+    assert classify(_indirect("a", intro)) == UpdateType.PATCH
+
+
+def test_indirect_major_change_is_major() -> None:
+    assert classify(_indirect("a", "Bumps [a](https://x) from 1.9.0 to 2.0.0.")) == UpdateType.MAJOR
+
+
+def test_indirect_without_stated_versions_is_major() -> None:
+    assert classify(_indirect("a", "Bumps a.")) == UpdateType.MAJOR
+
+
+def test_indirect_versions_of_another_dependency_do_not_count() -> None:
+    assert classify(_indirect("a", "Bumps [b](https://x) from 1.0.0 to 1.0.1.")) == UpdateType.MAJOR
+
+
+def test_indirect_unparseable_version_is_major() -> None:
+    intro = "Bumps [a](https://x) from 1.0.0-beta.1 to 1.0.0."
+    assert classify(_indirect("a", intro)) == UpdateType.MAJOR
+
+
+def test_indirect_entry_in_a_group_uses_its_updates_line() -> None:
+    message = (
+        "Bumps the toolchain group with 2 updates\n\n"
+        "Updates `vite` from 7.1.2 to 7.1.9\n"
+        "Updates `rollup` from 4.50.0 to 4.52.3\n\n"
+        "---\nupdated-dependencies:\n"
+        "- dependency-name: vite\n  dependency-version: 7.1.9\n"
+        "  update-type: version-update:semver-patch\n"
+        "- dependency-name: rollup\n  dependency-version: 4.52.3\n  dependency-type: indirect\n"
+        "...\n"
+    )
+    assert classify(message) == UpdateType.MINOR
