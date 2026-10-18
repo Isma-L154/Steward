@@ -10,8 +10,8 @@ import httpx
 import pytest
 
 from steward.webhooks.events import MAX_BODY_BYTES
+from tests.integration.server import BASE_URL, TIMEOUT
 
-BASE_URL = os.environ.get("STEWARD_BASE_URL", "http://localhost:8787")
 SECRET = os.environ.get("STEWARD_WEBHOOK_SECRET", "ci-webhook-secret").encode()
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "workflow_run_completed.json"
 
@@ -26,7 +26,7 @@ def _post(body: bytes, event: str, signature: str | None = None) -> httpx.Respon
     headers = {"X-GitHub-Event": event, "Content-Type": "application/json"}
     if signature is not None:
         headers["X-Hub-Signature-256"] = signature
-    return httpx.post(f"{BASE_URL}/webhook", content=body, headers=headers)
+    return httpx.post(f"{BASE_URL}/webhook", content=body, headers=headers, timeout=TIMEOUT)
 
 
 def test_unsigned_webhook_is_401() -> None:
@@ -47,7 +47,7 @@ def test_signed_ping_is_200() -> None:
 def _status_for_declared_length(length: int | None) -> int:
     """Declares a length without sending that many bytes: the size check must not read them."""
     url = urlparse(BASE_URL)
-    connection = http.client.HTTPConnection(url.hostname or "localhost", url.port, timeout=10)
+    connection = http.client.HTTPConnection(url.hostname or "localhost", url.port, timeout=TIMEOUT)
     connection.putrequest("POST", "/webhook")
     connection.putheader("X-GitHub-Event", "ping")
     if length is None:
@@ -84,7 +84,7 @@ def test_signed_workflow_run_for_feature_branch_is_202_with_nothing_queued() -> 
 
 
 def test_get_on_webhook_is_405() -> None:
-    assert httpx.get(f"{BASE_URL}/webhook").status_code == 405
+    assert httpx.get(f"{BASE_URL}/webhook", timeout=TIMEOUT).status_code == 405
 
 
 def test_signed_workflow_run_for_dependabot_branch_queues_one_evaluation() -> None:
