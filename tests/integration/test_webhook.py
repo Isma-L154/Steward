@@ -3,6 +3,7 @@ import hmac
 import http.client
 import json
 import os
+import secrets
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -92,3 +93,20 @@ def test_signed_workflow_run_for_dependabot_branch_queues_one_evaluation() -> No
     response = _post(body, "workflow_run", _sign(body))
     assert response.status_code == 202
     assert response.json() == {"queued": 1}
+
+
+def test_rate_limit_answers_429_after_120_requests_in_a_minute_from_one_ip() -> None:
+    # The limiter counts in fixed 60-second windows: 241 requests put more than 120 in one
+    # of at most two windows, wherever the minute boundary falls.
+    ip = f"203.0.113.{secrets.randbelow(254) + 1}"  # documentation range, a fresh quota
+    headers = {"X-GitHub-Event": "ping", "CF-Connecting-IP": ip}
+    statuses: list[int] = []
+    with httpx.Client(timeout=TIMEOUT) as client:
+        for _ in range(241):
+            statuses.append(
+                client.post(f"{BASE_URL}/webhook", content=b"{}", headers=headers).status_code
+            )
+            if statuses[-1] == 429:
+                break
+    assert statuses[-1] == 429
+    assert 401 in statuses
