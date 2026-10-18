@@ -1,6 +1,6 @@
 from steward.dependabot.decision import Decision, Kind
 from steward.dependabot.service import DependabotService
-from steward.github.models import Commit
+from steward.github.models import BranchUpdate, Commit
 from tests.dependabot.fakes import (
     REPO,
     STEWARD,
@@ -111,7 +111,9 @@ async def test_new_head_after_an_update_can_be_updated_again() -> None:
 
 async def test_refused_branch_update_is_not_remembered() -> None:
     memory = FakeMemory()
-    await _service(FakeGitHub(behind=3, update_succeeds=False), memory).evaluate(REPO, 7)
+    await _service(FakeGitHub(behind=3, update_result=BranchUpdate.NOT_NOW), memory).evaluate(
+        REPO, 7
+    )
     github = FakeGitHub(behind=3)
     assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.UPDATE_BRANCH
 
@@ -169,3 +171,27 @@ async def test_no_open_updates_evaluates_nothing() -> None:
     github = FakeGitHub(open_numbers=[])
     assert await _service(github).evaluate_open(REPO) == []
     assert github.writes == []
+
+
+async def test_forbidden_branch_update_labels_the_pr_and_is_not_remembered() -> None:
+    memory = FakeMemory()
+    github = FakeGitHub(behind=3, update_result=BranchUpdate.FORBIDDEN)
+    await _service(github, memory).evaluate(REPO, 7)
+    assert github.writes == [("update_branch", 7, "abc"), ("add_label", 7, "update-blocked")]
+    assert memory.requested == set()
+
+
+async def test_forbidden_update_does_not_label_twice() -> None:
+    github = FakeGitHub(
+        pr=dependabot_pr(labels=frozenset({"update-blocked"})),
+        behind=3,
+        update_result=BranchUpdate.FORBIDDEN,
+    )
+    await _service(github).evaluate(REPO, 7)
+    assert github.writes == [("update_branch", 7, "abc")]
+
+
+async def test_merge_clears_update_blocked() -> None:
+    github = FakeGitHub(pr=dependabot_pr(labels=frozenset({"update-blocked"})))
+    await _service(github).evaluate(REPO, 7)
+    assert github.writes[0] == ("remove_label", 7, "update-blocked")

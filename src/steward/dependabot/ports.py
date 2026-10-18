@@ -1,6 +1,13 @@
 from typing import Protocol
 
-from steward.github.models import CheckResult, Commit, MergeMethod, PullRequest, RepoRef
+from steward.github.models import (
+    BranchUpdate,
+    CheckResult,
+    Commit,
+    MergeMethod,
+    PullRequest,
+    RepoRef,
+)
 
 
 class DependabotGitHub(Protocol):
@@ -15,7 +22,9 @@ class DependabotGitHub(Protocol):
     async def merge(self, repo: RepoRef, number: int, sha: str, method: MergeMethod) -> bool: ...
     async def add_label(self, repo: RepoRef, number: int, label: str) -> None: ...
     async def remove_label(self, repo: RepoRef, number: int, label: str) -> None: ...
-    async def update_branch(self, repo: RepoRef, number: int, expected_head_sha: str) -> bool: ...
+    async def update_branch(
+        self, repo: RepoRef, number: int, expected_head_sha: str
+    ) -> BranchUpdate: ...
 
 
 class BranchUpdateMemory(Protocol):

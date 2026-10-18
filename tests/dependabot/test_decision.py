@@ -31,7 +31,7 @@ NOTHING = Decision(Kind.NOTHING)
 
 
 def test_managed_labels() -> None:
-    assert {"major-ready", "major-broken", "update-broken"} == MANAGED_LABELS
+    assert {"major-ready", "major-broken", "update-broken", "update-blocked"} == MANAGED_LABELS
 
 
 @pytest.mark.parametrize("update_type", [UpdateType.PATCH, UpdateType.MINOR])

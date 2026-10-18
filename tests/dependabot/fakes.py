@@ -2,7 +2,15 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from steward.github.models import CheckResult, CheckState, Commit, MergeMethod, PullRequest, RepoRef
+from steward.github.models import (
+    BranchUpdate,
+    CheckResult,
+    CheckState,
+    Commit,
+    MergeMethod,
+    PullRequest,
+    RepoRef,
+)
 
 REPO = RepoRef("Isma-L154", "nextsode")
 DEPENDABOT = "dependabot[bot]"
@@ -57,7 +65,7 @@ class FakeGitHub:
     behind: int = 0
     method: MergeMethod = "squash"
     merge_succeeds: bool = True
-    update_succeeds: bool = True
+    update_result: BranchUpdate = BranchUpdate.UPDATED
     # Successive values of `mergeable` on each read; the last one repeats.
     mergeable_sequence: Sequence[bool | None] = ()
     writes: list[tuple[Any, ...]] = field(default_factory=list)
@@ -104,9 +112,11 @@ class FakeGitHub:
     async def remove_label(self, repo: RepoRef, number: int, label: str) -> None:
         self.writes.append(("remove_label", number, label))
 
-    async def update_branch(self, repo: RepoRef, number: int, expected_head_sha: str) -> bool:
+    async def update_branch(
+        self, repo: RepoRef, number: int, expected_head_sha: str
+    ) -> BranchUpdate:
         self.writes.append(("update_branch", number, expected_head_sha))
-        return self.update_succeeds
+        return self.update_result
 
 
 @dataclass
