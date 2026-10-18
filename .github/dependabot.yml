@@ -10,6 +10,7 @@ updates:
     ignore:
       - dependency-name: pydantic
       - dependency-name: pydantic-core
+      - dependency-name: pyyaml
     groups:
       python-minor-and-patch:
         update-types: [minor, patch]

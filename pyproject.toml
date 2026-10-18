@@ -7,11 +7,13 @@ license = "MIT"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "pydantic==2.12.5",
+    "pyyaml==6.0.3",
 ]
 
 [dependency-groups]
 dev = [
     "cryptography",
+    "types-pyyaml",
     "httpx",
     "hypothesis>=6.168.0",
     "mypy",
@@ -27,7 +29,7 @@ package = false
 exclude-newer = "7 days"
 # The Pyodide index publishes no upload dates, so the cooldown would hide its wheels.
 # These are pinned to the exact versions bundled with the Workers Pyodide runtime.
-exclude-newer-package = { pydantic = false, pydantic-core = false }
+exclude-newer-package = { pydantic = false, pydantic-core = false, pyyaml = false }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -69,5 +71,5 @@ ignore_missing_imports = true
 
 # These subclass the runtime's DurableObject and WorkerEntrypoint, which are opaque above.
 [[tool.mypy.overrides]]
-module = ["steward.worker.entry", "steward.worker.merge_queue"]
+module = ["steward.worker.entry", "steward.worker.merge_queue", "steward.worker.standards_audit"]
 disallow_subclassing_any = false

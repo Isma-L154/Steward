@@ -110,3 +110,37 @@ def test_rate_limit_answers_429_after_120_requests_in_a_minute_from_one_ip() -> 
                 break
     assert statuses[-1] == 429
     assert 401 in statuses
+
+
+PUSH_FIXTURE = Path(__file__).parent.parent / "fixtures" / "push_main.json"
+
+
+def test_signed_push_to_main_queues_one_audit() -> None:
+    body = PUSH_FIXTURE.read_bytes()
+    response = _post(body, "push", _sign(body))
+    assert response.status_code == 202
+    assert response.json() == {"queued": 1}
+
+
+def test_signed_push_to_another_branch_queues_nothing() -> None:
+    payload = json.loads(PUSH_FIXTURE.read_text(encoding="utf-8"))
+    payload["ref"] = "refs/heads/feature/x"
+    body = json.dumps(payload).encode()
+    assert _post(body, "push", _sign(body)).json() == {"queued": 0}
+
+
+def test_signed_workflow_run_from_an_ignored_repository_queues_nothing() -> None:
+    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    payload["repository"]["topics"] = ["steward-ignore"]
+    body = json.dumps(payload).encode()
+    assert _post(body, "workflow_run", _sign(body)).json() == {"queued": 0}
+
+
+def test_weekly_sweep_runs_without_crashing() -> None:
+    response = httpx.get(
+        f"{BASE_URL}/cdn-cgi/local/scheduled",
+        params={"cron": "0 6 * * 1", "format": "json"},
+        timeout=TIMEOUT,
+    )
+    assert response.status_code == 200
+    assert response.json()["outcome"] == "ok"

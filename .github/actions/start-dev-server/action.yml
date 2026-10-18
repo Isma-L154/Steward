@@ -11,7 +11,7 @@ runs:
           echo "WEBHOOK_SECRET=ci-webhook-secret"
           printf 'PRIVATE_KEY="%s"\n' "$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048)"
         } > .dev.vars
-        uv run pywrangler dev > wrangler-dev.log 2>&1 &
+        uv run pywrangler dev --test-scheduled > wrangler-dev.log 2>&1 &
         for _ in $(seq 1 60); do
           curl -sf -o /dev/null http://localhost:8787/health && exit 0
           sleep 2

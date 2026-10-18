@@ -1,0 +1,13 @@
+from datetime import datetime
+from typing import Protocol
+
+from steward.github.models import RepoRef
+from steward.github.standards_client import TrackingIssue
+from steward.standards.snapshot import RepoSnapshot
+
+
+class StandardsGitHub(Protocol):
+    async def snapshot(self, repo: RepoRef, since: datetime) -> RepoSnapshot | None: ...
+    async def tracking_issue(self, repo: RepoRef, creator: str) -> TrackingIssue | None: ...
+    async def create_issue(self, repo: RepoRef, title: str, body: str, label: str) -> None: ...
+    async def update_issue(self, repo: RepoRef, number: int, body: str, state: str) -> None: ...
