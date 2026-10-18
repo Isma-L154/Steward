@@ -1,0 +1,27 @@
+name = "steward"
+main = "src/entry.py"
+compatibility_date = "2026-09-18"
+compatibility_flags = ["python_workers"]
+workers_dev = false
+routes = [{ pattern = "steward.cloudils.com", custom_domain = true }]
+
+[[durable_objects.bindings]]
+name = "MERGE_QUEUE"
+class_name = "MergeQueue"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MergeQueue"]
+
+[[ratelimits]]
+name = "WEBHOOK_LIMIT"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
+
+[observability]
+enabled = true
+
+[dev]
+port = 8787
+# Keep local requests on localhost; by default dev rewrites them to the production host.
+host = "localhost:8787"

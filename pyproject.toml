@@ -1,0 +1,73 @@
+[project]
+name = "steward"
+version = "0.1.0"
+description = "A GitHub App that merges safe Dependabot updates and checks repositories against one set of rules"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "cryptography==47.0.0",
+    "pydantic==2.12.5",
+]
+
+[dependency-groups]
+dev = [
+    "httpx",
+    "hypothesis>=6.168.0",
+    "mypy",
+    "pytest",
+    "pytest-asyncio>=1.4.0",
+    "ruff",
+    "workers-py",
+    "workers-runtime-sdk",
+]
+
+[tool.uv]
+package = false
+exclude-newer = "7 days"
+# The Pyodide index publishes no upload dates, so the cooldown would hide its wheels.
+# These are pinned to the exact versions bundled with the Workers Pyodide runtime.
+exclude-newer-package = { cffi = false, cryptography = false, pydantic = false, pydantic-core = false }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = ["--strict-markers", "--strict-config", "-m", "not integration"]
+markers = ["integration: needs a running Worker at STEWARD_BASE_URL"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests"]
+# The plans and specs hold illustrative snippets, not code to format.
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "S", "N", "RUF", "PL", "PT"]
+# Exceptions are named after the condition they report (e.g. MissingConfig, InvalidPayload).
+ignore = ["N818"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["steward", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+mypy_path = "src"
+
+# `js` exists only inside the Workers runtime, and the `workers` stubs do not match how the
+# adapters use it: treat both as opaque so the adapters in steward.worker are still type-checked.
+[[tool.mypy.overrides]]
+module = ["workers", "workers.*", "js"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
+# These subclass the runtime's DurableObject and WorkerEntrypoint, which are opaque above.
+[[tool.mypy.overrides]]
+module = ["steward.worker.entry", "steward.worker.merge_queue"]
+disallow_subclassing_any = false

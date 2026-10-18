@@ -1,0 +1,12 @@
+{
+  "name": "steward",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "wrangler": "4.149.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261006.1": true
+  }
+}

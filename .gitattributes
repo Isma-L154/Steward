@@ -1,0 +1,5 @@
+* text=auto eol=lf
+
+# Lockfiles are written by uv and npm, never by hand: GitHub collapses them in diffs.
+uv.lock linguist-generated
+package-lock.json linguist-generated
