@@ -9,6 +9,7 @@ from workers import DurableObject, Response
 
 from steward.config import MissingConfig, load_config
 from steward.dependabot.service import DependabotService
+from steward.github.api import GitHubApi
 from steward.github.app_auth import InstallationTokens, bot_login
 from steward.github.client import GitHubClient
 from steward.github.http import GitHubError
@@ -50,7 +51,7 @@ class MergeQueue(DurableObject):
                         self._http, config.app_id, signer, int(time.time())
                     )
                 service = DependabotService(
-                    GitHubClient(self._http, self._tokens, job["installation_id"]),
+                    GitHubClient(GitHubApi(self._http, self._tokens, job["installation_id"])),
                     DurableObjectBranchUpdateMemory(self.ctx.storage),
                     asyncio.sleep,
                     self._own_login,

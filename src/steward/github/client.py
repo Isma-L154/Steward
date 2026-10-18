@@ -1,10 +1,8 @@
-import json
 from http import HTTPStatus
 from typing import Any
 from urllib.parse import quote
 
-from steward.github.app_auth import API, API_HEADERS, InstallationTokens
-from steward.github.http import GitHubError, HttpClient
+from steward.github.api import GitHubApi
 from steward.github.models import (
     CheckResult,
     CheckState,
@@ -32,10 +30,8 @@ def _check_run_state(run: dict[str, Any]) -> CheckState:
 
 
 class GitHubClient:
-    def __init__(self, http: HttpClient, tokens: InstallationTokens, installation_id: int) -> None:
-        self._http = http
-        self._tokens = tokens
-        self._installation_id = installation_id
+    def __init__(self, api: GitHubApi) -> None:
+        self._api = api
 
     async def _call(
         self,
@@ -44,17 +40,10 @@ class GitHubClient:
         body: dict[str, Any] | None = None,
         accept: frozenset[int] = frozenset({HTTPStatus.OK}),
     ) -> tuple[int, Any]:
-        token = await self._tokens.token(self._installation_id)
-        headers = {**API_HEADERS, "Authorization": f"Bearer {token}"}
-        response = await self._http.request(
-            method, f"{API}{path}", headers, None if body is None else json.dumps(body)
-        )
-        if response.status not in accept:
-            raise GitHubError(response.status, path.split("?", maxsplit=1)[0])
-        return response.status, json.loads(response.body) if response.body else None
+        return await self._api.call(method, path, body, accept)
 
     async def _get(self, path: str) -> Any:
-        return (await self._call("GET", path))[1]
+        return await self._api.get(path)
 
     async def pull_request(self, repo: RepoRef, number: int) -> PullRequest:
         data = await self._get(f"/repos/{repo.full_name}/pulls/{number}")

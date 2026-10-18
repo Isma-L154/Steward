@@ -4,6 +4,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 from steward.dependabot.ports import DependabotGitHub
+from steward.github.api import GitHubApi
 from steward.github.app_auth import InstallationTokens
 from steward.github.client import GitHubClient
 from steward.github.http import GitHubError
@@ -30,11 +31,9 @@ def http() -> FakeHttp:
 
 @pytest.fixture
 def client(http: FakeHttp, rsa_key: RSAPrivateKey) -> GitHubClient:
-    return GitHubClient(
-        http,
-        InstallationTokens(http, "123", CryptographySigner(rsa_key), lambda: 1_792_324_800.0),
-        42,
-    )
+    signer = CryptographySigner(rsa_key)
+    tokens = InstallationTokens(http, "123", signer, lambda: 1_792_324_800.0)
+    return GitHubClient(GitHubApi(http, tokens, 42))
 
 
 def _api_requests(http: FakeHttp) -> list[Any]:
@@ -282,9 +281,8 @@ async def test_unexpected_status_raises_github_error_without_token_in_message(
 async def test_failed_token_exchange_raises_github_error(rsa_key: RSAPrivateKey) -> None:
     http = FakeHttp()
     http.on("POST", "/app/installations/42/access_tokens", 401, {"message": "Bad credentials"})
-    client = GitHubClient(
-        http, InstallationTokens(http, "123", CryptographySigner(rsa_key), lambda: 0.0), 42
-    )
+    tokens = InstallationTokens(http, "123", CryptographySigner(rsa_key), lambda: 0.0)
+    client = GitHubClient(GitHubApi(http, tokens, 42))
     with pytest.raises(GitHubError) as raised:
         await client.behind_by(REPO, "main", "abc")
     assert raised.value.status == 401
