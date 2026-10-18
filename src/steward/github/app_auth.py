@@ -36,6 +36,15 @@ async def app_jwt(app_id: str, signer: Signer, now: int) -> str:
     return f"{header}.{payload}.{_b64url(await signer.sign(signing_input))}"
 
 
+async def bot_login(http: HttpClient, app_id: str, signer: Signer, now: int) -> str:
+    """The login this App's commits and comments carry, e.g. `app-steward[bot]`."""
+    headers = {**API_HEADERS, "Authorization": f"Bearer {await app_jwt(app_id, signer, now)}"}
+    response = await http.request("GET", f"{API}/app", headers)
+    if response.status != 200:  # noqa: PLR2004 - GitHub's "OK"
+        raise GitHubError(response.status, "/app")
+    return f"{json.loads(response.body)['slug']}[bot]"
+
+
 class InstallationTokens:
     def __init__(
         self, http: HttpClient, app_id: str, signer: Signer, clock: Callable[[], float]

@@ -9,12 +9,12 @@ from workers import DurableObject, Response
 
 from steward.config import MissingConfig, load_config
 from steward.dependabot.service import DependabotService
-from steward.github.app_auth import InstallationTokens
+from steward.github.app_auth import InstallationTokens, bot_login
 from steward.github.client import GitHubClient
 from steward.github.http import GitHubError
 from steward.github.models import RepoRef
+from steward.worker.branch_update_memory import DurableObjectBranchUpdateMemory
 from steward.worker.fetch_http import WorkersFetch
-from steward.worker.rebase_memory import DurableObjectRebaseMemory
 from steward.worker.responses import error_response, json_response
 from steward.worker.webcrypto import WebCryptoSigner
 
@@ -28,6 +28,7 @@ class MergeQueue(DurableObject):
         self._lock = asyncio.Lock()
         self._http = WorkersFetch()
         self._tokens: InstallationTokens | None = None
+        self._own_login: str | None = None
 
     async def fetch(self, request: Any) -> Response:
         if urlparse(request.url).path != "/evaluate" or request.method != "POST":
@@ -39,15 +40,21 @@ class MergeQueue(DurableObject):
             return error_response("misconfigured", HTTPStatus.INTERNAL_SERVER_ERROR)
         job = json.loads(await request.text())
         repo = RepoRef(job["owner"], job["name"])
+        signer = WebCryptoSigner(config.private_key_pkcs8)
         if self._tokens is None:
-            signer = WebCryptoSigner(config.private_key_pkcs8)
             self._tokens = InstallationTokens(self._http, config.app_id, signer, time.time)
-        github = GitHubClient(self._http, self._tokens, job["installation_id"])
-        service = DependabotService(
-            github, DurableObjectRebaseMemory(self.ctx.storage), asyncio.sleep
-        )
         try:
             async with self._lock:
+                if self._own_login is None:
+                    self._own_login = await bot_login(
+                        self._http, config.app_id, signer, int(time.time())
+                    )
+                service = DependabotService(
+                    GitHubClient(self._http, self._tokens, job["installation_id"]),
+                    DurableObjectBranchUpdateMemory(self.ctx.storage),
+                    asyncio.sleep,
+                    self._own_login,
+                )
                 decision = await service.evaluate(repo, job["number"])
         except GitHubError as error:
             print(f"{repo.full_name}#{job['number']}: {error}")

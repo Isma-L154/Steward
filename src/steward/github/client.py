@@ -144,10 +144,12 @@ class GitHubClient:
             accept=frozenset({HTTPStatus.OK, HTTPStatus.NOT_FOUND}),
         )
 
-    async def comment(self, repo: RepoRef, number: int, body: str) -> None:
-        await self._call(
-            "POST",
-            f"/repos/{repo.full_name}/issues/{number}/comments",
-            {"body": body},
-            accept=frozenset({HTTPStatus.CREATED}),
+    async def update_branch(self, repo: RepoRef, number: int, expected_head_sha: str) -> bool:
+        # 422: the head moved since it was evaluated, or main cannot be merged in cleanly.
+        status, _ = await self._call(
+            "PUT",
+            f"/repos/{repo.full_name}/pulls/{number}/update-branch",
+            {"expected_head_sha": expected_head_sha},
+            accept=frozenset({HTTPStatus.ACCEPTED, HTTPStatus.UNPROCESSABLE_ENTITY}),
         )
+        return status == HTTPStatus.ACCEPTED

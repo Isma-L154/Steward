@@ -253,10 +253,19 @@ async def test_remove_label_ignores_404(http: FakeHttp, client: GitHubClient) ->
     await client.remove_label(REPO, 7, "major-ready")
 
 
-async def test_comment(http: FakeHttp, client: GitHubClient) -> None:
-    http.on("POST", f"{BASE}/issues/7/comments", 201, {"id": 1})
-    await client.comment(REPO, 7, "@dependabot rebase")
-    assert _api_requests(http)[0].json() == {"body": "@dependabot rebase"}
+async def test_update_branch_sends_the_expected_head(http: FakeHttp, client: GitHubClient) -> None:
+    http.on(
+        "PUT", f"{BASE}/pulls/7/update-branch", 202, {"message": "Updating pull request branch."}
+    )
+    assert await client.update_branch(REPO, 7, "abc") is True
+    assert _api_requests(http)[0].json() == {"expected_head_sha": "abc"}
+
+
+async def test_update_branch_returns_false_on_422(http: FakeHttp, client: GitHubClient) -> None:
+    http.on(
+        "PUT", f"{BASE}/pulls/7/update-branch", 422, {"message": "expected head sha didn't match"}
+    )
+    assert await client.update_branch(REPO, 7, "abc") is False
 
 
 async def test_unexpected_status_raises_github_error_without_token_in_message(

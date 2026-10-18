@@ -1,8 +1,9 @@
 from steward.dependabot.decision import Decision, Kind
-from steward.dependabot.service import REBASE_COMMENT, DependabotService
+from steward.dependabot.service import DependabotService
 from steward.github.models import Commit
 from tests.dependabot.fakes import (
     REPO,
+    STEWARD,
     FakeGitHub,
     FakeMemory,
     dependabot_pr,
@@ -15,7 +16,7 @@ from tests.dependabot.fakes import (
 
 
 def _service(github: FakeGitHub, memory: FakeMemory | None = None) -> DependabotService:
-    return DependabotService(github, memory or FakeMemory(), no_sleep)
+    return DependabotService(github, memory or FakeMemory(), no_sleep, STEWARD)
 
 
 async def test_green_minor_is_approved_then_merged_with_the_head_sha() -> None:
@@ -93,20 +94,31 @@ async def test_label_already_present_is_not_added_again() -> None:
     assert github.writes == []
 
 
-async def test_behind_requests_rebase_once_per_head_sha() -> None:
+async def test_behind_updates_the_branch_once_per_head_sha() -> None:
     github = FakeGitHub(behind=3)
     memory = FakeMemory()
-    assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.REQUEST_REBASE
+    assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.UPDATE_BRANCH
     assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.NOTHING
-    assert github.writes == [("comment", 7, REBASE_COMMENT)]
-    assert REBASE_COMMENT == "@dependabot rebase"
+    assert github.writes == [("update_branch", 7, "abc")]
 
 
-async def test_new_head_after_rebase_can_request_again() -> None:
+async def test_new_head_after_an_update_can_be_updated_again() -> None:
     memory = FakeMemory()
     await _service(FakeGitHub(behind=3), memory).evaluate(REPO, 7)
     github = FakeGitHub(pr=dependabot_pr(head_sha="def"), behind=1)
-    assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.REQUEST_REBASE
+    assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.UPDATE_BRANCH
+
+
+async def test_refused_branch_update_is_not_remembered() -> None:
+    memory = FakeMemory()
+    await _service(FakeGitHub(behind=3, update_succeeds=False), memory).evaluate(REPO, 7)
+    github = FakeGitHub(behind=3)
+    assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.UPDATE_BRANCH
+
+
+async def test_stewards_own_branch_update_commit_does_not_block_the_merge() -> None:
+    github = FakeGitHub(commits=[minor_commit(), Commit(author=STEWARD, message="Merge main")])
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.MERGE
 
 
 async def test_already_merged_pr_does_nothing() -> None:

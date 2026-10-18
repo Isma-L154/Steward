@@ -6,6 +6,7 @@ from steward.github.models import CheckResult, CheckState, Commit, MergeMethod, 
 
 REPO = RepoRef("Isma-L154", "nextsode")
 DEPENDABOT = "dependabot[bot]"
+STEWARD = "app-steward[bot]"
 
 
 def dependabot_pr(**changes: Any) -> PullRequest:
@@ -56,6 +57,7 @@ class FakeGitHub:
     behind: int = 0
     method: MergeMethod = "squash"
     merge_succeeds: bool = True
+    update_succeeds: bool = True
     # Successive values of `mergeable` on each read; the last one repeats.
     mergeable_sequence: Sequence[bool | None] = ()
     writes: list[tuple[Any, ...]] = field(default_factory=list)
@@ -96,8 +98,9 @@ class FakeGitHub:
     async def remove_label(self, repo: RepoRef, number: int, label: str) -> None:
         self.writes.append(("remove_label", number, label))
 
-    async def comment(self, repo: RepoRef, number: int, body: str) -> None:
-        self.writes.append(("comment", number, body))
+    async def update_branch(self, repo: RepoRef, number: int, expected_head_sha: str) -> bool:
+        self.writes.append(("update_branch", number, expected_head_sha))
+        return self.update_succeeds
 
 
 @dataclass
