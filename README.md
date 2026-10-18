@@ -95,6 +95,7 @@ First-time setup of the GitHub App (Settings → Developer settings → GitHub A
 - Webhook URL `https://steward.cloudils.com/webhook` and a generated secret.
 - Repository permissions: Metadata read, Contents read and write, Pull requests read and write, Issues read and write, Checks read, Commit statuses read, Actions read, Administration read.
 - Event: Workflow run. Installable only on this account.
+- Private key: **Credentials → Key pairs** on the App's settings page; the downloaded `.pem` goes into the `PRIVATE_KEY` Worker secret (`uv run pywrangler secret put PRIVATE_KEY < <file>.pem`).
 - Install it on the repositories it should look after; it acts only where it is installed.
 
 ## Security
