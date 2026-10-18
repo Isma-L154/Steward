@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Literal
 
 
 @dataclass(frozen=True)
@@ -22,3 +23,24 @@ class CheckState(StrEnum):
 class CheckResult:
     name: str
     state: CheckState
+
+
+@dataclass(frozen=True)
+class PullRequest:
+    number: int
+    state: str
+    draft: bool
+    author: str
+    head_sha: str
+    base_ref: str
+    mergeable: bool | None
+    labels: frozenset[str]
+
+
+@dataclass(frozen=True)
+class Commit:
+    author: str | None
+    message: str
+
+
+type MergeMethod = Literal["squash", "merge", "rebase"]
