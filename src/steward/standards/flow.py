@@ -17,7 +17,8 @@ def check_no_direct_push(snapshot: RepoSnapshot) -> list[Finding]:
     # A repository's first commit is created with the repository, not pushed past a PR.
     return [
         Finding(
-            "direct-push", f"Commit {commit_link(snapshot, commit)} reached `main` without a PR"
+            "direct-push",
+            f"Commit {commit_link(snapshot, commit)} went straight to `{snapshot.default_branch}`",
         )
         for commit in snapshot.commits
         if not commit.from_merged_pr and not commit.is_root

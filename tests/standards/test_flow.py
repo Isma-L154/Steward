@@ -63,3 +63,10 @@ def test_is_bot() -> None:
     assert is_bot("app-steward[bot]", "x@example.com")
     assert is_bot(None, "49699333+dependabot[bot]@users.noreply.github.com")
     assert not is_bot("Isma-L154", OWNER_EMAIL)
+
+
+def test_direct_push_names_the_real_default_branch() -> None:
+    findings = check_no_direct_push(
+        snapshot(default_branch="master", commits=[commit(from_merged_pr=False)])
+    )
+    assert "`master`" in findings[0].detail
