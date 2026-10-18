@@ -4,6 +4,7 @@ from urllib.parse import quote
 
 from steward.github.api import GitHubApi
 from steward.github.models import (
+    BranchUpdate,
     CheckResult,
     CheckState,
     Commit,
@@ -14,6 +15,11 @@ from steward.github.models import (
 
 # A Dependabot pull request has far fewer than 100 commits or checks, so one page is enough.
 _PAGE = "?per_page=100"
+_BRANCH_UPDATES = {
+    HTTPStatus.ACCEPTED: BranchUpdate.UPDATED,
+    HTTPStatus.UNPROCESSABLE_ENTITY: BranchUpdate.NOT_NOW,
+    HTTPStatus.FORBIDDEN: BranchUpdate.FORBIDDEN,
+}
 _PASSING_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
 _STATUS_STATES = {
     "success": CheckState.SUCCESS,
@@ -137,12 +143,13 @@ class GitHubClient:
             accept=frozenset({HTTPStatus.OK, HTTPStatus.NOT_FOUND}),
         )
 
-    async def update_branch(self, repo: RepoRef, number: int, expected_head_sha: str) -> bool:
-        # 422: the head moved since it was evaluated, or main cannot be merged in cleanly.
+    async def update_branch(
+        self, repo: RepoRef, number: int, expected_head_sha: str
+    ) -> BranchUpdate:
         status, _ = await self._call(
             "PUT",
             f"/repos/{repo.full_name}/pulls/{number}/update-branch",
             {"expected_head_sha": expected_head_sha},
-            accept=frozenset({HTTPStatus.ACCEPTED, HTTPStatus.UNPROCESSABLE_ENTITY}),
+            accept=frozenset(_BRANCH_UPDATES),
         )
-        return status == HTTPStatus.ACCEPTED
+        return _BRANCH_UPDATES[HTTPStatus(status)]

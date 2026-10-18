@@ -1,10 +1,17 @@
 from collections.abc import Awaitable, Callable
 
-from steward.dependabot.decision import MANAGED_LABELS, Decision, Facts, Kind, decide
+from steward.dependabot.decision import (
+    MANAGED_LABELS,
+    UPDATE_BLOCKED,
+    Decision,
+    Facts,
+    Kind,
+    decide,
+)
 from steward.dependabot.ports import BranchUpdateMemory, DependabotGitHub
 from steward.dependabot.update_type import UpdateType, classify
 from steward.dependabot.verdict import ci_verdict
-from steward.github.models import PullRequest, RepoRef
+from steward.github.models import BranchUpdate, PullRequest, RepoRef
 
 DEPENDABOT_LOGIN = "dependabot[bot]"
 _MERGEABLE_REREADS = 3
@@ -78,10 +85,15 @@ class DependabotService:
             method = await self._github.merge_method(repo)
             merged = await self._github.merge(repo, pr.number, pr.head_sha, method)
             print(f"{repo.full_name}#{pr.number}: merge {'done' if merged else 'refused'}")
-        elif decision.kind is Kind.UPDATE_BRANCH and await self._github.update_branch(
-            repo, pr.number, pr.head_sha
-        ):
+        elif decision.kind is Kind.UPDATE_BRANCH:
+            await self._update_branch(repo, pr)
+
+    async def _update_branch(self, repo: RepoRef, pr: PullRequest) -> None:
+        result = await self._github.update_branch(repo, pr.number, pr.head_sha)
+        if result is BranchUpdate.UPDATED:
             await self._memory.remember(repo, pr.number, pr.head_sha)
+        elif result is BranchUpdate.FORBIDDEN and UPDATE_BLOCKED not in pr.labels:
+            await self._github.add_label(repo, pr.number, UPDATE_BLOCKED)
 
     async def _remove_managed_labels(
         self, repo: RepoRef, pr: PullRequest, keep: str | None

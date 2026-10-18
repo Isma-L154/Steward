@@ -8,7 +8,14 @@ from steward.github.api import GitHubApi
 from steward.github.app_auth import InstallationTokens
 from steward.github.client import GitHubClient
 from steward.github.http import GitHubError
-from steward.github.models import CheckResult, CheckState, Commit, PullRequest, RepoRef
+from steward.github.models import (
+    BranchUpdate,
+    CheckResult,
+    CheckState,
+    Commit,
+    PullRequest,
+    RepoRef,
+)
 from tests.github.fake_http import FakeHttp
 from tests.github.signer import CryptographySigner
 
@@ -256,7 +263,7 @@ async def test_update_branch_sends_the_expected_head(http: FakeHttp, client: Git
     http.on(
         "PUT", f"{BASE}/pulls/7/update-branch", 202, {"message": "Updating pull request branch."}
     )
-    assert await client.update_branch(REPO, 7, "abc") is True
+    assert await client.update_branch(REPO, 7, "abc") is BranchUpdate.UPDATED
     assert _api_requests(http)[0].json() == {"expected_head_sha": "abc"}
 
 
@@ -264,7 +271,7 @@ async def test_update_branch_returns_false_on_422(http: FakeHttp, client: GitHub
     http.on(
         "PUT", f"{BASE}/pulls/7/update-branch", 422, {"message": "expected head sha didn't match"}
     )
-    assert await client.update_branch(REPO, 7, "abc") is False
+    assert await client.update_branch(REPO, 7, "abc") is BranchUpdate.NOT_NOW
 
 
 async def test_unexpected_status_raises_github_error_without_token_in_message(
@@ -301,3 +308,8 @@ async def test_open_dependabot_prs_keeps_only_dependabots(
         ],
     )
     assert await client.open_dependabot_prs(REPO) == [5, 7]
+
+
+async def test_update_branch_reports_403_as_forbidden(http: FakeHttp, client: GitHubClient) -> None:
+    http.on("PUT", f"{BASE}/pulls/7/update-branch", 403, {"message": "Resource not accessible"})
+    assert await client.update_branch(REPO, 7, "abc") is BranchUpdate.FORBIDDEN

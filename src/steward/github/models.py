@@ -13,6 +13,12 @@ class RepoRef:
         return f"{self.owner}/{self.name}"
 
 
+class BranchUpdate(StrEnum):
+    UPDATED = "updated"
+    NOT_NOW = "not_now"  # the head moved, or main does not merge in cleanly
+    FORBIDDEN = "forbidden"  # e.g. the App may not write workflow files
+
+
 class CheckState(StrEnum):
     SUCCESS = "success"
     FAILURE = "failure"

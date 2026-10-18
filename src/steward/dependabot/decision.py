@@ -7,7 +7,8 @@ from steward.dependabot.verdict import Verdict
 MAJOR_READY = "major-ready"
 MAJOR_BROKEN = "major-broken"
 UPDATE_BROKEN = "update-broken"
-MANAGED_LABELS = frozenset({MAJOR_READY, MAJOR_BROKEN, UPDATE_BROKEN})
+UPDATE_BLOCKED = "update-blocked"
+MANAGED_LABELS = frozenset({MAJOR_READY, MAJOR_BROKEN, UPDATE_BROKEN, UPDATE_BLOCKED})
 
 
 class Kind(StrEnum):
