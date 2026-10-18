@@ -150,3 +150,22 @@ async def test_no_required_checks_never_merges() -> None:
     github = FakeGitHub(required=frozenset(), checks=[success("test")])
     assert (await _service(github).evaluate(REPO, 7)).kind is Kind.NOTHING
     assert github.writes == []
+
+
+async def test_open_updates_are_all_evaluated() -> None:
+    github = FakeGitHub(open_numbers=[3, 5])
+    decisions = await _service(github).evaluate_open(REPO)
+    assert github.read_numbers == [3, 5]
+    assert [d.kind for d in decisions] == [Kind.MERGE, Kind.MERGE]
+
+
+async def test_at_most_four_open_updates_are_evaluated_per_push() -> None:
+    github = FakeGitHub(open_numbers=[1, 2, 3, 4, 5, 6])
+    assert len(await _service(github).evaluate_open(REPO)) == 4
+    assert github.read_numbers == [1, 2, 3, 4]
+
+
+async def test_no_open_updates_evaluates_nothing() -> None:
+    github = FakeGitHub(open_numbers=[])
+    assert await _service(github).evaluate_open(REPO) == []
+    assert github.writes == []

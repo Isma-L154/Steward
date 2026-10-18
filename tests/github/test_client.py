@@ -286,3 +286,18 @@ async def test_failed_token_exchange_raises_github_error(rsa_key: RSAPrivateKey)
     with pytest.raises(GitHubError) as raised:
         await client.behind_by(REPO, "main", "abc")
     assert raised.value.status == 401
+
+
+async def test_open_dependabot_prs_keeps_only_dependabots(
+    http: FakeHttp, client: GitHubClient
+) -> None:
+    http.on(
+        "GET",
+        f"{BASE}/pulls",
+        body=[
+            {"number": 5, "user": {"login": "dependabot[bot]"}},
+            {"number": 6, "user": {"login": "Isma-L154"}},
+            {"number": 7, "user": {"login": "dependabot[bot]"}},
+        ],
+    )
+    assert await client.open_dependabot_prs(REPO) == [5, 7]

@@ -115,11 +115,11 @@ def test_rate_limit_answers_429_after_120_requests_in_a_minute_from_one_ip() -> 
 PUSH_FIXTURE = Path(__file__).parent.parent / "fixtures" / "push_main.json"
 
 
-def test_signed_push_to_main_queues_one_audit() -> None:
+def test_signed_push_to_main_queues_an_audit_and_a_dependabot_reevaluation() -> None:
     body = PUSH_FIXTURE.read_bytes()
     response = _post(body, "push", _sign(body))
     assert response.status_code == 202
-    assert response.json() == {"queued": 1}
+    assert response.json() == {"queued": 2}
 
 
 def test_signed_push_to_another_branch_queues_nothing() -> None:

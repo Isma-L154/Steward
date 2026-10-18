@@ -8,6 +8,8 @@ from steward.github.models import PullRequest, RepoRef
 
 DEPENDABOT_LOGIN = "dependabot[bot]"
 _MERGEABLE_REREADS = 3
+# Each evaluation costs about ten GitHub calls; the free plan allows 50 per invocation.
+_MAX_OPEN_PER_PUSH = 4
 _REREAD_DELAY_SECONDS = 1.0
 
 
@@ -32,6 +34,11 @@ class DependabotService:
         decision = decide(await self._facts(repo, pr))
         await self._apply(repo, pr, decision)
         return decision
+
+    async def evaluate_open(self, repo: RepoRef) -> list[Decision]:
+        """After main moves, open updates may be behind it with no CI run left to wake them."""
+        numbers = await self._github.open_dependabot_prs(repo)
+        return [await self.evaluate(repo, number) for number in numbers[:_MAX_OPEN_PER_PUSH]]
 
     async def _read_pull_request(self, repo: RepoRef, number: int) -> PullRequest:
         # GitHub computes `mergeable` in the background; the first read often has none yet.
