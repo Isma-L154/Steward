@@ -39,10 +39,13 @@ def test_green_up_to_date_minor_or_patch_merges(update_type: UpdateType) -> None
     assert decide(replace(MERGEABLE, update_type=update_type)) == Decision(Kind.MERGE)
 
 
-@pytest.mark.parametrize("change", [{"authored_by_dependabot": False}, {"open": False}])
-def test_not_dependabot_or_not_open_does_nothing(change: dict[str, bool]) -> None:
-    assert decide(replace(MERGEABLE, **change)) == NOTHING
-    assert decide(replace(MERGEABLE, update_type=UpdateType.MAJOR, **change)) == NOTHING
+@pytest.mark.parametrize(
+    "blocked",
+    [replace(MERGEABLE, authored_by_dependabot=False), replace(MERGEABLE, open=False)],
+)
+def test_not_dependabot_or_not_open_does_nothing(blocked: Facts) -> None:
+    assert decide(blocked) == NOTHING
+    assert decide(replace(blocked, update_type=UpdateType.MAJOR)) == NOTHING
 
 
 @pytest.mark.parametrize(
