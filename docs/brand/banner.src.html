@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      README banner source, 1280x640. Build banner.html (this file with the fonts embedded)
+      and render it:
+        node docs/brand/build-banner.mjs
+        npx -y playwright@1.63.0 screenshot --viewport-size "1280,640" "file:///<absolute path>/docs/brand/banner.html" docs/brand/banner.png
+      Brand: the cloudils family, as on the hub: its dark ground, its fonts and its green.
+      Every status carries a word and an icon, never colour alone.
+    -->
+    <style>
+      @font-face {
+        font-family: "Bricolage Grotesque";
+        src: url("__DISPLAY_FONT__") format("woff2");
+        font-weight: 200 800;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("__MONO_FONT__") format("woff2");
+        font-weight: 100 800;
+      }
+      :root {
+        --bg: #0b0c0f;
+        --card: #111317;
+        --line: #2a2f36;
+        --ink: #f2f3f5;
+        --mute: #9198a2;
+        --ok: #39d353;
+        --wait: #e3b341;
+        --bad: #ff6b62;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1280px; height: 640px; overflow: hidden; background: var(--bg); }
+      #banner { position: relative; width: 1280px; height: 640px; overflow: hidden; color: var(--ink); font-family: "Bricolage Grotesque", sans-serif; }
+      .mono { font-family: "JetBrains Mono", monospace; }
+      .glow { position: absolute; right: -120px; top: 40px; width: 760px; height: 560px; background: radial-gradient(closest-side, rgba(57, 211, 83, 0.10), transparent); }
+      .left { position: absolute; left: 64px; top: 56px; width: 470px; }
+      .brand { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--mute); }
+      .brand b { color: var(--ink); font-weight: 600; }
+      h1 { margin-top: 112px; font-size: 56px; font-weight: 800; letter-spacing: -0.045em; line-height: 1.02; }
+      h1 span { color: var(--ok); }
+      .desc { margin-top: 22px; font-size: 21px; line-height: 1.45; color: var(--mute); }
+      .desc b { color: var(--ink); font-weight: 500; }
+      .chip { position: absolute; left: 64px; bottom: 56px; display: inline-flex; gap: 10px; align-items: center; padding: 9px 14px; border: 1px solid var(--line); border-radius: 999px; font-size: 16px; color: var(--mute); }
+      .chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+      .prs { position: absolute; right: 64px; top: 128px; width: 620px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: 0 34px 80px rgba(0, 0, 0, 0.6); transform: rotate(-1deg); overflow: hidden; }
+      .prs header { padding: 14px 20px; border-bottom: 1px solid var(--line); font-size: 15px; color: var(--mute); }
+      .row { display: grid; grid-template-columns: 22px 1fr auto; gap: 14px; align-items: center; padding: 17px 20px; border-bottom: 1px solid var(--line); font-size: 16px; }
+      .row:last-child { border-bottom: 0; }
+      .row svg { width: 20px; height: 20px; }
+      .title { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .title small { display: block; margin-top: 3px; font-size: 13px; color: var(--mute); }
+      .tag { padding: 4px 10px; border-radius: 999px; border: 1px solid currentColor; font-size: 14px; }
+      .ok { color: var(--ok); }
+      .wait { color: var(--wait); }
+      .bad { color: var(--bad); }
+    </style>
+  </head>
+  <body>
+    <div id="banner">
+      <div class="glow"></div>
+      <div class="left">
+        <div class="brand">cloudils / <b>steward</b></div>
+        <h1>Dependabot,<br /><span>handled.</span></h1>
+        <p class="desc">Patch and minor updates <b>merge once CI passes</b>. Majors wait for you, labelled by their CI result.</p>
+      </div>
+      <div class="chip mono"><i></i>GitHub App · Python on Workers</div>
+      <section class="prs mono">
+        <header>Dependabot pull requests · this week</header>
+        <div class="row">
+          <svg class="ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+          <div class="title">bump httpx 0.27.2 → 0.28.1<small>nextsode · patch · CI green</small></div>
+          <span class="tag ok">merged</span>
+        </div>
+        <div class="row">
+          <svg class="ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+          <div class="title">bump the actions group<small>hub · minor · CI green</small></div>
+          <span class="tag ok">merged</span>
+        </div>
+        <div class="row">
+          <svg class="wait" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M10 9v6M14 9v6" /></svg>
+          <div class="title">bump vite 6.4.1 → 7.1.9<small>terravisual · major · CI green</small></div>
+          <span class="tag wait">major-ready</span>
+        </div>
+        <div class="row">
+          <svg class="bad" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          <div class="title">bump ruff 0.14.2 → 0.14.3<small>loopifybot · patch · CI red</small></div>
+          <span class="tag bad">update-broken</span>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

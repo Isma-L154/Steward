@@ -1,0 +1,140 @@
+from steward.dependabot.decision import Decision, Kind
+from steward.dependabot.service import REBASE_COMMENT, DependabotService
+from steward.github.models import Commit
+from tests.dependabot.fakes import (
+    REPO,
+    FakeGitHub,
+    FakeMemory,
+    dependabot_pr,
+    failure,
+    major_commit,
+    minor_commit,
+    no_sleep,
+    success,
+)
+
+
+def _service(github: FakeGitHub, memory: FakeMemory | None = None) -> DependabotService:
+    return DependabotService(github, memory or FakeMemory(), no_sleep)
+
+
+async def test_green_minor_is_approved_then_merged_with_the_head_sha() -> None:
+    github = FakeGitHub()
+    decision = await _service(github).evaluate(REPO, 7)
+    assert decision == Decision(Kind.MERGE)
+    assert github.writes == [("approve", 7, "abc"), ("merge", 7, "abc", "squash")]
+
+
+async def test_merge_uses_the_repository_merge_method() -> None:
+    github = FakeGitHub(method="rebase")
+    await _service(github).evaluate(REPO, 7)
+    assert github.writes[-1] == ("merge", 7, "abc", "rebase")
+
+
+async def test_extra_commit_by_someone_else_blocks_everything() -> None:
+    github = FakeGitHub(commits=[minor_commit(), Commit(author="Isma-L154", message="tweak")])
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.NOTHING
+    assert github.writes == []
+
+
+async def test_commit_without_github_author_blocks_everything() -> None:
+    github = FakeGitHub(commits=[minor_commit(), Commit(author=None, message="tweak")])
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.NOTHING
+    assert github.writes == []
+
+
+async def test_pr_not_opened_by_dependabot_does_nothing() -> None:
+    github = FakeGitHub(pr=dependabot_pr(author="Isma-L154"))
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.NOTHING
+    assert github.writes == []
+
+
+async def test_draft_pr_does_nothing() -> None:
+    github = FakeGitHub(pr=dependabot_pr(draft=True))
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.NOTHING
+    assert github.writes == []
+
+
+async def test_merge_clears_a_stale_update_broken_label() -> None:
+    github = FakeGitHub(pr=dependabot_pr(labels=frozenset({"update-broken", "dependencies"})))
+    await _service(github).evaluate(REPO, 7)
+    assert github.writes == [
+        ("remove_label", 7, "update-broken"),
+        ("approve", 7, "abc"),
+        ("merge", 7, "abc", "squash"),
+    ]
+
+
+async def test_major_green_gets_major_ready_and_loses_major_broken() -> None:
+    github = FakeGitHub(
+        pr=dependabot_pr(labels=frozenset({"major-broken"})), commits=[major_commit()]
+    )
+    assert await _service(github).evaluate(REPO, 7) == Decision(Kind.LABEL, "major-ready")
+    assert github.writes == [("add_label", 7, "major-ready"), ("remove_label", 7, "major-broken")]
+
+
+async def test_major_is_never_merged_even_when_green() -> None:
+    github = FakeGitHub(commits=[major_commit()])
+    await _service(github).evaluate(REPO, 7)
+    assert all(write[0] not in {"approve", "merge"} for write in github.writes)
+
+
+async def test_red_minor_gets_update_broken() -> None:
+    github = FakeGitHub(checks=[failure("test")])
+    assert await _service(github).evaluate(REPO, 7) == Decision(Kind.LABEL, "update-broken")
+    assert github.writes == [("add_label", 7, "update-broken")]
+
+
+async def test_label_already_present_is_not_added_again() -> None:
+    github = FakeGitHub(
+        pr=dependabot_pr(labels=frozenset({"major-ready"})), commits=[major_commit()]
+    )
+    await _service(github).evaluate(REPO, 7)
+    assert github.writes == []
+
+
+async def test_behind_requests_rebase_once_per_head_sha() -> None:
+    github = FakeGitHub(behind=3)
+    memory = FakeMemory()
+    assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.REQUEST_REBASE
+    assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.NOTHING
+    assert github.writes == [("comment", 7, REBASE_COMMENT)]
+    assert REBASE_COMMENT == "@dependabot rebase"
+
+
+async def test_new_head_after_rebase_can_request_again() -> None:
+    memory = FakeMemory()
+    await _service(FakeGitHub(behind=3), memory).evaluate(REPO, 7)
+    github = FakeGitHub(pr=dependabot_pr(head_sha="def"), behind=1)
+    assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.REQUEST_REBASE
+
+
+async def test_already_merged_pr_does_nothing() -> None:
+    github = FakeGitHub(pr=dependabot_pr(state="closed", mergeable=None))
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.NOTHING
+    assert github.writes == []
+
+
+async def test_unknown_mergeable_is_reread_three_times_then_nothing() -> None:
+    github = FakeGitHub(mergeable_sequence=[None, None, None, None])
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.NOTHING
+    assert github.pull_request_reads == 4
+    assert github.writes == []
+
+
+async def test_mergeable_resolving_on_reread_merges() -> None:
+    github = FakeGitHub(mergeable_sequence=[None, True])
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.MERGE
+    assert github.pull_request_reads == 2
+
+
+async def test_failed_merge_call_is_reported_not_raised() -> None:
+    github = FakeGitHub(merge_succeeds=False)
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.MERGE
+    assert github.writes[-1] == ("merge", 7, "abc", "squash")
+
+
+async def test_no_required_checks_never_merges() -> None:
+    github = FakeGitHub(required=frozenset(), checks=[success("test")])
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.NOTHING
+    assert github.writes == []

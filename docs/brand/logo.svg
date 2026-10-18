@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Steward">
+  <!-- A merge: the branch (green) joins main (grey) and lands as a passed check. -->
+  <rect width="512" height="512" rx="112" fill="#0b0c0f" />
+  <rect x="8" y="8" width="496" height="496" rx="106" fill="none" stroke="#2a2f36" stroke-width="4" />
+  <path d="M168 136 V376" stroke="#9198a2" stroke-width="36" stroke-linecap="round" fill="none" />
+  <path d="M168 168 C168 268 252 280 324 300" stroke="#39d353" stroke-width="36" stroke-linecap="round" fill="none" />
+  <circle cx="168" cy="136" r="44" fill="#0b0c0f" stroke="#9198a2" stroke-width="28" />
+  <circle cx="168" cy="376" r="44" fill="#0b0c0f" stroke="#9198a2" stroke-width="28" />
+  <circle cx="352" cy="312" r="86" fill="#39d353" />
+  <path d="M312 314 L340 342 L394 284" stroke="#0b0c0f" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>
