@@ -5,7 +5,13 @@ from typing import Any
 import pytest
 
 from steward.github.models import RepoRef
-from steward.webhooks.events import InvalidPayload, PullRequestToEvaluate, pull_requests_to_evaluate
+from steward.webhooks.events import (
+    InvalidPayload,
+    PullRequestToEvaluate,
+    RepoToAudit,
+    pull_requests_to_evaluate,
+    repos_to_audit,
+)
 
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "workflow_run_completed.json"
 
@@ -68,3 +74,59 @@ def test_string_installation_id_is_rejected_not_coerced() -> None:
     payload["installation"]["id"] = "42"
     with pytest.raises(InvalidPayload):
         pull_requests_to_evaluate("workflow_run", json.dumps(payload))
+
+
+PUSH_FIXTURE = Path(__file__).parent.parent / "fixtures" / "push_main.json"
+
+
+def _push() -> dict[str, Any]:
+    payload: dict[str, Any] = json.loads(PUSH_FIXTURE.read_text(encoding="utf-8"))
+    return payload
+
+
+def test_push_to_the_default_branch_is_audited() -> None:
+    assert repos_to_audit("push", json.dumps(_push())) == [
+        RepoToAudit(installation_id=42, repo=RepoRef("Isma-L154", "nextsode"))
+    ]
+
+
+def test_push_to_another_branch_is_not_audited() -> None:
+    payload = _push()
+    payload["ref"] = "refs/heads/feature/x"
+    assert repos_to_audit("push", json.dumps(payload)) == []
+
+
+def test_push_to_an_ignored_repository_is_not_audited() -> None:
+    payload = _push()
+    payload["repository"]["topics"] = ["steward-ignore"]
+    assert repos_to_audit("push", json.dumps(payload)) == []
+
+
+def test_push_to_an_archived_repository_is_not_audited() -> None:
+    payload = _push()
+    payload["repository"]["archived"] = True
+    assert repos_to_audit("push", json.dumps(payload)) == []
+
+
+def test_push_without_topics_or_archived_is_audited() -> None:
+    payload = _push()
+    del payload["repository"]["topics"]
+    del payload["repository"]["archived"]
+    assert len(repos_to_audit("push", json.dumps(payload))) == 1
+
+
+def test_push_without_default_branch_is_invalid() -> None:
+    payload = _push()
+    del payload["repository"]["default_branch"]
+    with pytest.raises(InvalidPayload):
+        repos_to_audit("push", json.dumps(payload))
+
+
+def test_other_events_are_not_audited() -> None:
+    assert repos_to_audit("workflow_run", json.dumps(_payload())) == []
+
+
+def test_workflow_run_in_an_ignored_repository_yields_nothing() -> None:
+    payload = _payload()
+    payload["repository"]["topics"] = ["steward-ignore"]
+    assert pull_requests_to_evaluate("workflow_run", json.dumps(payload)) == []

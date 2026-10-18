@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from steward.github.models import RepoRef
+from steward.repos import is_managed
 
 MAX_BODY_BYTES = 1_048_576
 _DEPENDABOT_BRANCH_PREFIX = "dependabot/"
@@ -17,6 +18,12 @@ class PullRequestToEvaluate:
     installation_id: int
     repo: RepoRef
     number: int
+
+
+@dataclass(frozen=True)
+class RepoToAudit:
+    installation_id: int
+    repo: RepoRef
 
 
 # GitHub payloads carry hundreds of fields: only the ones used are declared, strictly typed.
@@ -44,6 +51,12 @@ class _Owner(_Model):
 class _Repository(_Model):
     name: str
     owner: _Owner
+    archived: bool = False
+    topics: list[str] = []
+
+
+class _PushedRepository(_Repository):
+    default_branch: str
 
 
 class _Installation(_Model):
@@ -61,6 +74,12 @@ class _Action(_Model):
     action: str
 
 
+class _PushEvent(_Model):
+    ref: str
+    installation: _Installation
+    repository: _PushedRepository
+
+
 def pull_requests_to_evaluate(event: str, body: str) -> list[PullRequestToEvaluate]:
     """The Dependabot pull requests whose CI just finished, or none for any other event."""
     if event != "workflow_run":
@@ -71,9 +90,27 @@ def pull_requests_to_evaluate(event: str, body: str) -> list[PullRequestToEvalua
         parsed = _WorkflowRunEvent.model_validate_json(body)
     except ValidationError as error:
         raise InvalidPayload(str(error.error_count())) from error
+    if not is_managed(parsed.repository.archived, parsed.repository.topics):
+        return []
     repo = RepoRef(parsed.repository.owner.login, parsed.repository.name)
     return [
         PullRequestToEvaluate(parsed.installation.id, repo, pr.number)
         for pr in parsed.workflow_run.pull_requests
         if pr.head.ref.startswith(_DEPENDABOT_BRANCH_PREFIX)
     ]
+
+
+def repos_to_audit(event: str, body: str) -> list[RepoToAudit]:
+    """The repository whose default branch just moved, or none for any other event."""
+    if event != "push":
+        return []
+    try:
+        parsed = _PushEvent.model_validate_json(body)
+    except ValidationError as error:
+        raise InvalidPayload(str(error.error_count())) from error
+    repository = parsed.repository
+    if parsed.ref != f"refs/heads/{repository.default_branch}" or not is_managed(
+        repository.archived, repository.topics
+    ):
+        return []
+    return [RepoToAudit(parsed.installation.id, RepoRef(repository.owner.login, repository.name))]
