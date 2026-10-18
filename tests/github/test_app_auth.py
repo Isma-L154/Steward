@@ -5,7 +5,7 @@ from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.hashes import SHA256
 
-from steward.github.app_auth import InstallationTokens, app_jwt
+from steward.github.app_auth import InstallationTokens, app_jwt, bot_login
 from tests.github.fake_http import FakeHttp
 from tests.github.signer import CryptographySigner
 
@@ -74,3 +74,11 @@ async def test_installation_token_refreshed_after_that(rsa_key: RSAPrivateKey) -
     clock.now += 3600 - 299
     assert await tokens.token(42) == "ghs_two"
     assert len(http.requests) == 2
+
+
+async def test_bot_login_is_the_app_slug_with_bot_suffix(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    http.on("GET", "/app", body={"id": 5373045, "slug": "app-steward"})
+    login = await bot_login(http, "123", CryptographySigner(rsa_key), now=1_000_000)
+    assert login == "app-steward[bot]"
+    assert http.requests[0].headers["Authorization"].startswith("Bearer ")

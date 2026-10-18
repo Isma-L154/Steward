@@ -1,13 +1,12 @@
 from collections.abc import Awaitable, Callable
 
 from steward.dependabot.decision import MANAGED_LABELS, Decision, Facts, Kind, decide
-from steward.dependabot.ports import DependabotGitHub, RebaseMemory
+from steward.dependabot.ports import BranchUpdateMemory, DependabotGitHub
 from steward.dependabot.update_type import UpdateType, classify
 from steward.dependabot.verdict import ci_verdict
 from steward.github.models import PullRequest, RepoRef
 
 DEPENDABOT_LOGIN = "dependabot[bot]"
-REBASE_COMMENT = "@dependabot rebase"
 _MERGEABLE_REREADS = 3
 _REREAD_DELAY_SECONDS = 1.0
 
@@ -16,12 +15,15 @@ class DependabotService:
     def __init__(
         self,
         github: DependabotGitHub,
-        memory: RebaseMemory,
+        memory: BranchUpdateMemory,
         sleep: Callable[[float], Awaitable[None]],
+        own_login: str,
     ) -> None:
         self._github = github
         self._memory = memory
         self._sleep = sleep
+        # Updating a branch adds a merge commit authored by this App's own bot.
+        self._trusted_authors = frozenset({DEPENDABOT_LOGIN, own_login})
 
     async def evaluate(self, repo: RepoRef, number: int) -> Decision:
         pr = await self._read_pull_request(repo, number)
@@ -47,14 +49,15 @@ class DependabotService:
         results = await self._github.check_results(repo, pr.head_sha)
         return Facts(
             authored_by_dependabot=bool(commits)
-            and all(commit.author == DEPENDABOT_LOGIN for commit in commits),
+            and commits[0].author == DEPENDABOT_LOGIN
+            and all(commit.author in self._trusted_authors for commit in commits),
             open=pr.state == "open" and not pr.draft,
             update_type=classify(commits[0].message) if commits else UpdateType.MAJOR,
             verdict=ci_verdict(results, required),
             has_required_checks=bool(required),
             mergeable=pr.mergeable,
             behind_by=await self._github.behind_by(repo, pr.base_ref, pr.head_sha),
-            rebase_requested=await self._memory.was_requested(repo, pr.number, pr.head_sha),
+            branch_update_requested=await self._memory.was_requested(repo, pr.number, pr.head_sha),
         )
 
     async def _apply(self, repo: RepoRef, pr: PullRequest, decision: Decision) -> None:
@@ -68,8 +71,9 @@ class DependabotService:
             method = await self._github.merge_method(repo)
             merged = await self._github.merge(repo, pr.number, pr.head_sha, method)
             print(f"{repo.full_name}#{pr.number}: merge {'done' if merged else 'refused'}")
-        elif decision.kind is Kind.REQUEST_REBASE:
-            await self._github.comment(repo, pr.number, REBASE_COMMENT)
+        elif decision.kind is Kind.UPDATE_BRANCH and await self._github.update_branch(
+            repo, pr.number, pr.head_sha
+        ):
             await self._memory.remember(repo, pr.number, pr.head_sha)
 
     async def _remove_managed_labels(

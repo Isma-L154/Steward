@@ -13,7 +13,7 @@ MANAGED_LABELS = frozenset({MAJOR_READY, MAJOR_BROKEN, UPDATE_BROKEN})
 class Kind(StrEnum):
     NOTHING = "nothing"
     LABEL = "label"
-    REQUEST_REBASE = "request_rebase"
+    UPDATE_BRANCH = "update_branch"
     MERGE = "merge"
 
 
@@ -32,7 +32,7 @@ class Facts:
     has_required_checks: bool
     mergeable: bool | None
     behind_by: int
-    rebase_requested: bool
+    branch_update_requested: bool
 
 
 _NOTHING = Decision(Kind.NOTHING)
@@ -63,5 +63,5 @@ def _decide_minor_or_patch(facts: Facts) -> Decision:
     ):
         return _NOTHING
     if facts.behind_by > 0:
-        return _NOTHING if facts.rebase_requested else Decision(Kind.REQUEST_REBASE)
+        return _NOTHING if facts.branch_update_requested else Decision(Kind.UPDATE_BRANCH)
     return Decision(Kind.MERGE)

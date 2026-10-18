@@ -25,7 +25,7 @@ MERGEABLE = Facts(
     has_required_checks=True,
     mergeable=True,
     behind_by=0,
-    rebase_requested=False,
+    branch_update_requested=False,
 )
 NOTHING = Decision(Kind.NOTHING)
 
@@ -77,12 +77,12 @@ def test_not_known_mergeable_does_nothing(mergeable: bool | None) -> None:
     assert decide(replace(MERGEABLE, mergeable=mergeable)) == NOTHING
 
 
-def test_behind_requests_rebase() -> None:
-    assert decide(replace(MERGEABLE, behind_by=2)) == Decision(Kind.REQUEST_REBASE)
+def test_behind_updates_the_branch() -> None:
+    assert decide(replace(MERGEABLE, behind_by=2)) == Decision(Kind.UPDATE_BRANCH)
 
 
-def test_behind_with_rebase_already_requested_does_nothing() -> None:
-    assert decide(replace(MERGEABLE, behind_by=2, rebase_requested=True)) == NOTHING
+def test_behind_with_branch_update_already_requested_does_nothing() -> None:
+    assert decide(replace(MERGEABLE, behind_by=2, branch_update_requested=True)) == NOTHING
 
 
 @given(
@@ -95,7 +95,7 @@ def test_behind_with_rebase_already_requested_does_nothing() -> None:
         has_required_checks=st.booleans(),
         mergeable=st.none() | st.booleans(),
         behind_by=st.integers(min_value=0, max_value=50),
-        rebase_requested=st.booleans(),
+        branch_update_requested=st.booleans(),
     )
 )
 def test_merge_only_for_green_dependabot_minor_or_patch_with_required_checks(

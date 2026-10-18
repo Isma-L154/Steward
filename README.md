@@ -27,7 +27,7 @@
 - **Merges safe updates by itself** — a Dependabot patch or minor update is approved and merged as soon as every check on it passes, using the repository's merge method (squash first).
 - **Never merges a major** — a major update gets `major-ready` when CI passes or `major-broken` when it fails, and waits for you.
 - **Flags broken updates** — a patch or minor update with failing CI gets `update-broken`; the label goes away once it passes and merges.
-- **One update at a time per repository** — evaluations for a repository run one after another, and an update behind `main` gets `@dependabot rebase` (once per commit) instead of being merged on stale CI.
+- **One update at a time per repository** — evaluations for a repository run one after another, and an update behind `main` gets its branch updated with `main` (once per head commit), so CI runs on the real combination before it merges.
 - **Fails closed** — no auto-merge in a repository whose `main` has no required status checks, when a required check never reported, when the update type is unclear, or when anyone but Dependabot pushed a commit to the branch.
 
 The design, including what comes next (rule checks per repository and data for the hub), is in [`docs/superpowers/specs/2026-10-18-steward-design.md`](docs/superpowers/specs/2026-10-18-steward-design.md).
