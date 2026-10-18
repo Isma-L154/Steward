@@ -1,0 +1,2 @@
+# Fake EC key string in a test that checks non-RSA keys are rejected; not a secret.
+2fecb44776e2bd87f729baf210d23dc58fa8b422:tests/github/test_keys.py:private-key:44
