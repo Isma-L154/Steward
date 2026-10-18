@@ -1,0 +1,38 @@
+{
+  "action": "completed",
+  "workflow_run": {
+    "id": 30433642,
+    "name": "CI",
+    "head_branch": "dependabot/uv/python-minor-and-patch-3f2a1b",
+    "head_sha": "acb5820ced9479c074f688cc328bf03f341a511d",
+    "event": "pull_request",
+    "status": "completed",
+    "conclusion": "success",
+    "pull_requests": [
+      {
+        "url": "https://api.github.com/repos/Isma-L154/nextsode/pulls/7",
+        "id": 2001,
+        "number": 7,
+        "head": {
+          "ref": "dependabot/uv/python-minor-and-patch-3f2a1b",
+          "sha": "acb5820ced9479c074f688cc328bf03f341a511d",
+          "repo": {"id": 1311613038, "url": "https://api.github.com/repos/Isma-L154/nextsode", "name": "nextsode"}
+        },
+        "base": {
+          "ref": "main",
+          "sha": "9049f1265b7d61be4a8904a9a27120d2064dab3b",
+          "repo": {"id": 1311613038, "url": "https://api.github.com/repos/Isma-L154/nextsode", "name": "nextsode"}
+        }
+      }
+    ]
+  },
+  "repository": {
+    "id": 1311613038,
+    "name": "nextsode",
+    "full_name": "Isma-L154/nextsode",
+    "private": false,
+    "owner": {"login": "Isma-L154", "id": 114269881, "type": "User"}
+  },
+  "sender": {"login": "dependabot[bot]", "id": 49699333, "type": "Bot"},
+  "installation": {"id": 42, "node_id": "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uNDI="}
+}
