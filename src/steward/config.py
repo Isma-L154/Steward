@@ -13,6 +13,7 @@ class Config:
     app_id: str
     private_key_pkcs8: bytes
     webhook_secret: bytes
+    owner_email: str
 
 
 def _required(env: Any, name: str) -> str:
@@ -31,4 +32,5 @@ def load_config(env: Any) -> Config:
         app_id=_required(env, "APP_ID"),
         private_key_pkcs8=private_key,
         webhook_secret=_required(env, "WEBHOOK_SECRET").encode(),
+        owner_email=_required(env, "OWNER_EMAIL"),
     )

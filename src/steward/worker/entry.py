@@ -6,9 +6,16 @@ from urllib.parse import urlparse
 from workers import Response, WorkerEntrypoint
 
 from steward.config import Config, MissingConfig, load_config
-from steward.webhooks.events import MAX_BODY_BYTES, InvalidPayload, pull_requests_to_evaluate
+from steward.github.http import GitHubError
+from steward.webhooks.events import (
+    MAX_BODY_BYTES,
+    InvalidPayload,
+    pull_requests_to_evaluate,
+    repos_to_audit,
+)
 from steward.webhooks.signature import is_valid_signature
 from steward.worker.responses import error_response, json_response
+from steward.worker.weekly_sweep import request_audit, run_weekly_sweep
 
 
 class Default(WorkerEntrypoint):
@@ -48,7 +55,9 @@ class Default(WorkerEntrypoint):
         if event == "ping":
             return json_response({"status": "pong"}, HTTPStatus.OK)
         try:
-            pull_requests = pull_requests_to_evaluate(event, body.decode("utf-8"))
+            text = body.decode("utf-8")
+            pull_requests = pull_requests_to_evaluate(event, text)
+            audits = repos_to_audit(event, text)
         except InvalidPayload, UnicodeDecodeError:
             return error_response("invalid_payload", HTTPStatus.BAD_REQUEST)
         # Awaited, not deferred: an evaluation takes a few seconds, well inside GitHub's
@@ -63,4 +72,14 @@ class Default(WorkerEntrypoint):
             await self.env.MERGE_QUEUE.getByName(pr.repo.full_name).fetch(
                 "https://queue/evaluate", method="POST", body=json.dumps(job)
             )
-        return json_response({"queued": len(pull_requests)}, HTTPStatus.ACCEPTED)
+        for audit in audits:
+            await request_audit(self.env, audit.installation_id, audit.repo)
+        return json_response({"queued": len(pull_requests) + len(audits)}, HTTPStatus.ACCEPTED)
+
+    async def scheduled(self, controller: Any, env: Any, ctx: Any) -> None:
+        try:
+            audited = await run_weekly_sweep(self.env)
+        except (MissingConfig, GitHubError) as error:
+            print(f"weekly sweep failed: {error}")
+            return
+        print(f"weekly sweep audited {audited} repositories")

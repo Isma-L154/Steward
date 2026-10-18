@@ -5,13 +5,29 @@ compatibility_flags = ["python_workers"]
 workers_dev = false
 routes = [{ pattern = "steward.cloudils.com", custom_domain = true }]
 
+[vars]
+# The email the owner's commits must carry (standards check); not a secret.
+OWNER_EMAIL = "ismaleonsaenz@gmail.com"
+
+[triggers]
+# Weekly standards sweep, Mondays 06:00 UTC.
+crons = ["0 6 * * 1"]
+
 [[durable_objects.bindings]]
 name = "MERGE_QUEUE"
 class_name = "MergeQueue"
 
+[[durable_objects.bindings]]
+name = "STANDARDS_AUDIT"
+class_name = "StandardsAudit"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["MergeQueue"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["StandardsAudit"]
 
 [[ratelimits]]
 name = "WEBHOOK_LIMIT"

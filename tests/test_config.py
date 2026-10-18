@@ -11,11 +11,16 @@ from cryptography.hazmat.primitives.serialization import (
 
 from steward.config import MissingConfig, load_config
 
-NAMES = ("APP_ID", "PRIVATE_KEY", "WEBHOOK_SECRET")
+NAMES = ("APP_ID", "PRIVATE_KEY", "WEBHOOK_SECRET", "OWNER_EMAIL")
 
 
 def _env(rsa_pem: str, **overrides: str) -> SimpleNamespace:
-    values = {"APP_ID": "123", "PRIVATE_KEY": rsa_pem, "WEBHOOK_SECRET": "s3cret"} | overrides
+    values = {
+        "APP_ID": "123",
+        "PRIVATE_KEY": rsa_pem,
+        "WEBHOOK_SECRET": "s3cret",
+        "OWNER_EMAIL": "ismaleonsaenz@gmail.com",
+    } | overrides
     return SimpleNamespace(**values)
 
 
@@ -23,6 +28,7 @@ def test_load_config_reads_all_three(rsa_key: RSAPrivateKey, rsa_pem: str) -> No
     config = load_config(_env(rsa_pem))
     assert config.app_id == "123"
     assert config.webhook_secret == b"s3cret"
+    assert config.owner_email == "ismaleonsaenz@gmail.com"
     assert config.private_key_pkcs8 == rsa_key.private_bytes(
         Encoding.DER, PrivateFormat.PKCS8, NoEncryption()
     )
