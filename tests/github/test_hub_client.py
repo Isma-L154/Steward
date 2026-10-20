@@ -4,6 +4,7 @@ from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
+from steward.accounts import Accounts
 from steward.github.api import GitHubApi
 from steward.github.hub_client import (
     READ_ONLY_PERMISSIONS,
@@ -13,7 +14,7 @@ from steward.github.hub_client import (
     parse_repo,
     read_only_tokens,
 )
-from steward.github.models import RepoRef
+from steward.github.models import Installation, RepoRef
 from steward.hub.snapshot import HubRepo, OpenIssue, OpenPull
 from tests.github.fake_http import FakeHttp
 from tests.github.signer import CryptographySigner
@@ -247,8 +248,22 @@ async def test_account_repos_concatenates_installations() -> None:
         async def repos(self) -> list[HubRepo]:
             return [HubRepo(RepoRef("o", f"i{self.installation}"))]
 
-    repos = await account_repos([1, 2], _Client)  # type: ignore[arg-type]
+    installed = [Installation(1, "o"), Installation(2, "o")]
+    repos = await account_repos(installed, Accounts.parse("o", ""), _Client)  # type: ignore[arg-type]
     assert [repo.repo.name for repo in repos] == ["i1", "i2"]
+
+
+async def test_account_repos_reads_only_the_owners_installations() -> None:
+    read: list[int] = []
+
+    def client_for(installation: int) -> HubClient:
+        read.append(installation)
+        raise AssertionError(installation)
+
+    installed = [Installation(1, "Wal-014"), Installation(2, "stranger")]
+    owner_only = Accounts.parse("o", "Wal-014")
+    assert await account_repos(installed, owner_only, client_for) == []
+    assert read == []
 
 
 async def test_standards_issues_are_read_by_the_given_label(rsa_key: RSAPrivateKey) -> None:
