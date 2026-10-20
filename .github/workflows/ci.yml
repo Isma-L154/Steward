@@ -63,7 +63,7 @@ jobs:
       - name: Bundle the Worker
         run: uv run pywrangler deploy --dry-run --outdir .wrangler/dry-run
       - name: Start the dev server
-        uses: ./.github/actions/start-dev-server
+        uses: $/.github/actions/start-dev-server
       - name: Integration tests
         run: uv run pytest -m integration
         env:
