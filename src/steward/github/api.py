@@ -4,7 +4,7 @@ from http import HTTPStatus
 from typing import Any
 
 from steward.github.app_auth import API, API_HEADERS, InstallationTokens
-from steward.github.http import GitHubError, HttpClient
+from steward.github.http import GitHubError, HttpClient, answer_detail, detail_from
 
 
 class GitHubApi:
@@ -28,7 +28,9 @@ class GitHubApi:
             method, f"{API}{path}", headers, None if body is None else json.dumps(body)
         )
         if response.status not in accept:
-            raise GitHubError(response.status, path.split("?", maxsplit=1)[0])
+            raise GitHubError(
+                response.status, path.split("?", maxsplit=1)[0], answer_detail(response.body)
+            )
         return response.status, json.loads(response.body) if response.body else None
 
     async def get(self, path: str) -> Any:
@@ -38,7 +40,7 @@ class GitHubApi:
         _, response = await self.call("POST", "/graphql", {"query": query, "variables": variables})
         # GraphQL reports failures in the body of a 200 answer.
         if response.get("errors"):
-            raise GitHubError(HTTPStatus.OK, "/graphql")
+            raise GitHubError(HTTPStatus.OK, "/graphql", detail_from(response))
         return response["data"]
 
     async def graphql_partial(self, query: str, variables: Mapping[str, Any]) -> dict[str, Any]:
@@ -47,5 +49,5 @@ class GitHubApi:
         _, response = await self.call("POST", "/graphql", {"query": query, "variables": variables})
         data = response.get("data") if isinstance(response, dict) else None
         if not isinstance(data, dict):
-            raise GitHubError(HTTPStatus.OK, "/graphql")
+            raise GitHubError(HTTPStatus.OK, "/graphql", detail_from(response))
         return data
