@@ -1,13 +1,13 @@
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
-from steward.github.models import RepoRef
+from steward.github.models import DEPENDABOT_LOGIN, RepoRef, graphql_login
 from steward.standards.ports import StandardsGitHub
 from steward.standards.report import ISSUE_LABEL, ISSUE_TITLE, render_body
 from steward.standards.rules import run_checks
 from steward.standards.snapshot import WINDOW_DAYS, Finding
 
-_DEPENDABOT = frozenset({"dependabot", "dependabot[bot]"})
+_DEPENDABOT = frozenset({DEPENDABOT_LOGIN, graphql_login(DEPENDABOT_LOGIN)})
 
 
 def _normalized(body: str) -> str:
@@ -26,8 +26,7 @@ class StandardsService:
         self._owner_email = owner_email
         self._own_login = own_login
         self._clock = clock
-        # GraphQL names bots without the "[bot]" suffix that REST uses.
-        self._trusted_bots = _DEPENDABOT | {own_login, own_login.removesuffix("[bot]")}
+        self._trusted_bots = _DEPENDABOT | {own_login, graphql_login(own_login)}
 
     async def audit(self, repo: RepoRef) -> list[Finding]:
         since = self._clock() - timedelta(days=WINDOW_DAYS)

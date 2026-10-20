@@ -14,6 +14,7 @@ from steward.github.api import GitHubApi
 from steward.github.app_auth import bot_login, installation_ids
 from steward.github.http import GitHubError
 from steward.github.hub_client import HubClient, account_repos, read_only_tokens
+from steward.github.models import graphql_login
 from steward.hub.service import HubService
 from steward.hub.snapshot import HubRepo
 from steward.worker.fetch_http import WorkersFetch
@@ -70,7 +71,6 @@ class HubData(DurableObject):
             if self._service is None:
                 signer = WebCryptoSigner(config.private_key_pkcs8)
                 tokens = read_only_tokens(self._http, config.app_id, signer, time.time)
-                # GraphQL names the App's bot by its slug, without the REST "[bot]" suffix.
                 login = await bot_login(self._http, config.app_id, signer, int(time.time()))
 
                 async def source() -> list[HubRepo]:
@@ -86,6 +86,6 @@ class HubData(DurableObject):
                     source,
                     DurableObjectHubStore(self.ctx.storage),
                     lambda: datetime.now(UTC),
-                    login.removesuffix("[bot]"),
+                    graphql_login(login),
                 )
             return self._service

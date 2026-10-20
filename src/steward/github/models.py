@@ -2,6 +2,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
 
+DEPENDABOT_LOGIN = "dependabot[bot]"
+
+
+def graphql_login(rest_login: str) -> str:
+    """GraphQL names every bot by its bare login, without the `[bot]` suffix REST uses."""
+    return rest_login.removesuffix("[bot]")
+
 
 @dataclass(frozen=True)
 class RepoRef:

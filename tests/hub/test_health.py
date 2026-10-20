@@ -4,14 +4,14 @@ import pytest
 
 from steward.github.models import RepoRef
 from steward.hub.health import ci_status, deploy_status, health
-from steward.hub.snapshot import DEPENDABOT_LOGIN, HubRepo, OpenIssue, OpenPull
+from steward.hub.snapshot import DEPENDABOT_AUTHOR, HubRepo, OpenIssue, OpenPull
 
 NOW = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)
 REPO = RepoRef("Isma-L154", "nextsode")
 APP = "app-steward"
 
 
-def _pull(number: int, author: str | None = DEPENDABOT_LOGIN) -> OpenPull:
+def _pull(number: int, author: str | None = DEPENDABOT_AUTHOR) -> OpenPull:
     return OpenPull(number, f"Bump x to {number}", author, frozenset())
 
 

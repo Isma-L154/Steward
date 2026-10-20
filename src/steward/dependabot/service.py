@@ -11,9 +11,8 @@ from steward.dependabot.decision import (
 from steward.dependabot.ports import BranchUpdateMemory, DependabotGitHub
 from steward.dependabot.update_type import UpdateType, classify
 from steward.dependabot.verdict import ci_verdict
-from steward.github.models import BranchUpdate, PullRequest, RepoRef
+from steward.github.models import DEPENDABOT_LOGIN, BranchUpdate, PullRequest, RepoRef
 
-DEPENDABOT_LOGIN = "dependabot[bot]"
 _MERGEABLE_REREADS = 3
 # Each evaluation costs about ten GitHub calls; the free plan allows 50 per invocation.
 _MAX_OPEN_PER_PUSH = 4

@@ -4,6 +4,7 @@ from urllib.parse import quote
 
 from steward.github.api import GitHubApi
 from steward.github.models import (
+    DEPENDABOT_LOGIN,
     BranchUpdate,
     CheckResult,
     CheckState,
@@ -79,7 +80,7 @@ class GitHubClient:
 
     async def open_dependabot_prs(self, repo: RepoRef) -> list[int]:
         pulls = await self._get(f"/repos/{repo.full_name}/pulls?state=open&per_page=100")
-        return [pull["number"] for pull in pulls if pull["user"]["login"] == "dependabot[bot]"]
+        return [pull["number"] for pull in pulls if pull["user"]["login"] == DEPENDABOT_LOGIN]
 
     async def pull_request_commits(self, repo: RepoRef, number: int) -> list[Commit]:
         data = await self._get(f"/repos/{repo.full_name}/pulls/{number}/commits{_PAGE}")
