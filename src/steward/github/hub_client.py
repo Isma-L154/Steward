@@ -11,7 +11,6 @@ from steward.github.app_auth import InstallationTokens, Signer
 from steward.github.client import GitHubClient
 from steward.github.http import HttpClient
 from steward.github.models import RepoRef
-from steward.github.standards_client import StandardsClient
 from steward.hub.snapshot import HubRepo, OpenIssue, OpenPull
 from steward.hub.text import is_safe_repo
 from steward.repos import is_managed
@@ -243,9 +242,7 @@ class HubClient:
         self._api = api
 
     async def repos(self) -> list[HubRepo]:
-        installed = await StandardsClient(
-            self._api, GitHubClient(self._api)
-        ).installed_repositories()
+        installed = await GitHubClient(self._api).installed_repositories()
         repos = [
             item.repo
             for item in installed

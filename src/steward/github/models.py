@@ -13,6 +13,20 @@ class RepoRef:
         return f"{self.owner}/{self.name}"
 
 
+@dataclass(frozen=True)
+class InstalledRepo:
+    repo: RepoRef
+    archived: bool
+    topics: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TrackingIssue:
+    number: int
+    state: str
+    body: str
+
+
 class BranchUpdate(StrEnum):
     UPDATED = "updated"
     NOT_NOW = "not_now"  # the head moved, or main does not merge in cleanly

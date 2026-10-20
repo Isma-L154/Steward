@@ -8,6 +8,7 @@ from steward.github.models import (
     CheckResult,
     CheckState,
     Commit,
+    InstalledRepo,
     MergeMethod,
     PullRequest,
     RepoRef,
@@ -50,6 +51,18 @@ class GitHubClient:
 
     async def _get(self, path: str) -> Any:
         return await self._api.get(path)
+
+    async def installed_repositories(self) -> list[InstalledRepo]:
+        # One page: the account has far fewer than 100 repositories.
+        data = await self._get("/installation/repositories?per_page=100")
+        return [
+            InstalledRepo(
+                RepoRef(item["owner"]["login"], item["name"]),
+                archived=bool(item.get("archived")),
+                topics=tuple(item.get("topics") or ()),
+            )
+            for item in data["repositories"]
+        ]
 
     async def pull_request(self, repo: RepoRef, number: int) -> PullRequest:
         data = await self._get(f"/repos/{repo.full_name}/pulls/{number}")

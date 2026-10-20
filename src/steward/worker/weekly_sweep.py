@@ -7,8 +7,7 @@ from steward.config import load_config
 from steward.github.api import GitHubApi
 from steward.github.app_auth import InstallationTokens, installation_ids
 from steward.github.client import GitHubClient
-from steward.github.models import RepoRef
-from steward.github.standards_client import InstalledRepo, StandardsClient
+from steward.github.models import InstalledRepo, RepoRef
 from steward.standards.sweep import sweep
 from steward.worker.fetch_http import WorkersFetch
 from steward.worker.webcrypto import WebCryptoSigner
@@ -31,7 +30,7 @@ async def run_weekly_sweep(env: Any) -> int:
 
     async def repositories(installation_id: int) -> Sequence[InstalledRepo]:
         api = GitHubApi(http, tokens, installation_id)
-        return await StandardsClient(api, GitHubClient(api)).installed_repositories()
+        return await GitHubClient(api).installed_repositories()
 
     async def audit(installation_id: int, repo: RepoRef) -> None:
         status = await request_audit(env, installation_id, repo)

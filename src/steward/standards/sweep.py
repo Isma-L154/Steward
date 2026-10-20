@@ -1,7 +1,6 @@
 from collections.abc import Awaitable, Callable, Sequence
 
-from steward.github.models import RepoRef
-from steward.github.standards_client import InstalledRepo
+from steward.github.models import InstalledRepo, RepoRef
 from steward.repos import is_managed
 
 

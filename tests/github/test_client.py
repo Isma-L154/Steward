@@ -13,6 +13,7 @@ from steward.github.models import (
     CheckResult,
     CheckState,
     Commit,
+    InstalledRepo,
     PullRequest,
     RepoRef,
 )
@@ -313,3 +314,21 @@ async def test_open_dependabot_prs_keeps_only_dependabots(
 async def test_update_branch_reports_403_as_forbidden(http: FakeHttp, client: GitHubClient) -> None:
     http.on("PUT", f"{BASE}/pulls/7/update-branch", 403, {"message": "Resource not accessible"})
     assert await client.update_branch(REPO, 7, "abc") is BranchUpdate.FORBIDDEN
+
+
+async def test_installed_repositories(http: FakeHttp, client: GitHubClient) -> None:
+    http.on(
+        "GET",
+        "/installation/repositories",
+        body={
+            "total_count": 2,
+            "repositories": [
+                {"name": "a", "owner": {"login": "o"}, "archived": False, "topics": ["x"]},
+                {"name": "b", "owner": {"login": "o"}, "archived": True},
+            ],
+        },
+    )
+    assert await client.installed_repositories() == [
+        InstalledRepo(RepoRef("o", "a"), archived=False, topics=("x",)),
+        InstalledRepo(RepoRef("o", "b"), archived=True, topics=()),
+    ]
