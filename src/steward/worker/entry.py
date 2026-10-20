@@ -15,7 +15,7 @@ from steward.webhooks.events import (
     InvalidPayload,
     installation_to_remove,
     pull_requests_to_evaluate,
-    repos_to_audit,
+    pushes_to_default,
 )
 from steward.webhooks.signature import is_valid_signature
 from steward.worker.fetch_http import WorkersFetch
@@ -67,7 +67,7 @@ class Default(WorkerEntrypoint):
             text = body.decode("utf-8")
             removal = installation_to_remove(event, text, config.accounts)
             pull_requests = pull_requests_to_evaluate(event, text, config.accounts)
-            audits = repos_to_audit(event, text, config.accounts)
+            pushes = pushes_to_default(event, text, config.accounts)
         except InvalidPayload, UnicodeDecodeError:
             return error_response("invalid_payload", HTTPStatus.BAD_REQUEST)
         if removal is not None:
@@ -85,7 +85,7 @@ class Default(WorkerEntrypoint):
                 "https://queue/evaluate", method="POST", body=json.dumps(job)
             )
         # A push to main is also when other open updates fall behind it.
-        for pushed in audits:
+        for pushed in pushes:
             job = {
                 "installation_id": pushed.installation_id,
                 "owner": pushed.repo.owner,
@@ -94,8 +94,9 @@ class Default(WorkerEntrypoint):
             await self.env.MERGE_QUEUE.getByName(pushed.repo.full_name).fetch(
                 "https://queue/evaluate-open", method="POST", body=json.dumps(job)
             )
-            await request_audit(self.env, pushed.installation_id, pushed.repo)
-        queued = len(pull_requests) + 2 * len(audits)
+            if pushed.audit:
+                await request_audit(self.env, pushed.installation_id, pushed.repo)
+        queued = len(pull_requests) + sum(1 + pushed.audit for pushed in pushes)
         return json_response({"queued": queued}, HTTPStatus.ACCEPTED)
 
     async def _uninstall(self, config: Config, installation: Installation) -> Response:

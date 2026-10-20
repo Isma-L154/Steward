@@ -79,7 +79,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run mypy src tests
 
 cp .dev.vars.example .dev.vars          # fill in the values below
-uv run pywrangler dev --test-scheduled  # http://localhost:8787/health
+uv run pywrangler dev --test-scheduled  # http://localhost:8787/health; the integration tests expect ALLOWED_ACCOUNTS=Wal-014 in .dev.vars
 npx wrangler dev -c tests/integration/caller/wrangler.toml  # stand-in hub on :8788, bound to HubApi
 uv run pytest -m integration            # against both running dev servers
 ```
