@@ -92,3 +92,23 @@ async def test_installation_ids_lists_the_apps_installations(rsa_key: RSAPrivate
         7,
     ]
     assert http.requests[0].headers["Authorization"].startswith("Bearer ")
+
+
+async def test_scoped_token_request_carries_exactly_the_permissions(
+    rsa_key: RSAPrivateKey,
+) -> None:
+    http = FakeHttp()
+    http.on("POST", ROUTE, 201, {"token": "ghs_ro", "expires_at": "2026-10-18T13:00:00Z"})
+    clock = _Clock(1_792_324_800.0)
+    tokens = InstallationTokens(
+        http, "123", CryptographySigner(rsa_key), clock, permissions={"metadata": "read"}
+    )
+    assert await tokens.token(42) == "ghs_ro"
+    assert http.requests[0].json() == {"permissions": {"metadata": "read"}}
+
+
+async def test_unscoped_token_request_has_no_body(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    http.on("POST", ROUTE, 201, {"token": "ghs_one", "expires_at": "2026-10-18T13:00:00Z"})
+    await _tokens(http, _Clock(1_792_324_800.0), rsa_key).token(42)
+    assert http.requests[0].body is None

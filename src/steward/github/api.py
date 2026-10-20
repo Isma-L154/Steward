@@ -40,3 +40,12 @@ class GitHubApi:
         if response.get("errors"):
             raise GitHubError(HTTPStatus.OK, "/graphql")
         return response["data"]
+
+    async def graphql_partial(self, query: str, variables: Mapping[str, Any]) -> dict[str, Any]:
+        """The `data` of an answer that may carry `errors` for some fields; the fields that
+        failed come back null."""
+        _, response = await self.call("POST", "/graphql", {"query": query, "variables": variables})
+        data = response.get("data") if isinstance(response, dict) else None
+        if not isinstance(data, dict):
+            raise GitHubError(HTTPStatus.OK, "/graphql")
+        return data
