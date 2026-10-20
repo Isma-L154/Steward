@@ -33,6 +33,7 @@
 - **One issue per repository, never noise** — what fails is listed in a single "Repository standards" issue, updated in place, reopened if something breaks again and closed when everything passes.
 - **Feeds the hub** — the hub (`hub.cloudils.com`) reads each repository's CI, latest deploy, open pull requests, issues, security alerts and standards state, plus a weekly report of what waits for you, through a service binding only; nothing of it is public. The contract is [`docs/hub-api.md`](docs/hub-api.md).
 - **Leaves alone what you exclude** — archived repositories and any repository with the `steward-ignore` topic are skipped by everything Steward does.
+- **Acts only on accounts you allow** — the owner's account and the ones in `ALLOWED_ACCOUNTS`. If any other account installs the App, Steward uninstalls itself from it, and it never uninstalls the App's own account.
 
 The design is in [`docs/superpowers/specs/2026-10-18-steward-design.md`](docs/superpowers/specs/2026-10-18-steward-design.md).
 
@@ -91,7 +92,7 @@ uv run pytest -m integration            # against both running dev servers
 
 > ⚠️ `.dev.vars` is git-ignored and must never be committed.
 
-`OWNER_EMAIL`, the email the owner's commits must carry, is a plain variable in `wrangler.toml`. With `--test-scheduled`, `curl "http://localhost:8787/cdn-cgi/local/scheduled?cron=0+6+*+*+1&format=json"` runs the weekly sweep once.
+`OWNER_EMAIL` (the email the owner's commits must carry), `OWNER_LOGIN` (the owner's account) and `ALLOWED_ACCOUNTS` (other accounts Steward may merge for, comma-separated; empty means the owner only) are plain variables in `wrangler.toml`. With `--test-scheduled`, `curl "http://localhost:8787/cdn-cgi/local/scheduled?cron=0+6+*+*+MON&format=json"` runs the weekly sweep once.
 
 On Windows with the repository outside `C:`, Pyodide only sees the current drive: set `UV_CACHE_DIR` and `UV_PYTHON_INSTALL_DIR` to folders on the repository's drive before running `pywrangler`.
 

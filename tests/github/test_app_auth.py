@@ -6,8 +6,15 @@ from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.hashes import SHA256
 
-from steward.github.app_auth import InstallationTokens, app_jwt, bot_login, installation_ids
+from steward.github.app_auth import (
+    InstallationTokens,
+    app_jwt,
+    bot_login,
+    installations,
+    uninstall,
+)
 from steward.github.http import GitHubError
+from steward.github.models import Installation
 from tests.github.fake_http import FakeHttp
 from tests.github.signer import CryptographySigner
 
@@ -86,14 +93,54 @@ async def test_bot_login_is_the_app_slug_with_bot_suffix(rsa_key: RSAPrivateKey)
     assert http.requests[0].headers["Authorization"].startswith("Bearer ")
 
 
-async def test_installation_ids_lists_the_apps_installations(rsa_key: RSAPrivateKey) -> None:
+async def test_installations_lists_each_with_its_account(rsa_key: RSAPrivateKey) -> None:
     http = FakeHttp()
-    http.on("GET", "/app/installations", body=[{"id": 42}, {"id": 7}])
-    assert await installation_ids(http, "123", CryptographySigner(rsa_key), now=1_000_000) == [
-        42,
-        7,
+    http.on(
+        "GET",
+        "/app/installations",
+        body=[{"id": 42, "account": {"login": "Isma-L154"}}, {"id": 7, "account": None}],
+    )
+    assert await installations(http, "123", CryptographySigner(rsa_key), now=1_000_000) == [
+        Installation(42, "Isma-L154"),
+        Installation(7, ""),
     ]
     assert http.requests[0].headers["Authorization"].startswith("Bearer ")
+
+
+async def test_uninstall_deletes_another_accounts_installation(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    http.on("GET", "/app", body={"slug": "app-steward", "owner": {"login": "Isma-L154"}})
+    http.on("DELETE", "/app/installations/7", 204)
+    removed = await uninstall(
+        http, "123", CryptographySigner(rsa_key), 1_000_000, Installation(7, "x")
+    )
+    assert removed
+    assert [(r.method, r.path) for r in http.requests] == [
+        ("GET", "/app"),
+        ("DELETE", "/app/installations/7"),
+    ]
+
+
+@pytest.mark.parametrize("account", ["Isma-L154", "isma-l154"])
+async def test_uninstall_never_removes_the_apps_own_account(
+    rsa_key: RSAPrivateKey, account: str
+) -> None:
+    http = FakeHttp()
+    http.on("GET", "/app", body={"slug": "app-steward", "owner": {"login": "Isma-L154"}})
+    removed = await uninstall(
+        http, "123", CryptographySigner(rsa_key), 1_000_000, Installation(42, account)
+    )
+    assert not removed
+    assert all(request.method != "DELETE" for request in http.requests)
+
+
+async def test_refused_uninstall_raises(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    http.on("GET", "/app", body={"slug": "app-steward", "owner": {"login": "Isma-L154"}})
+    http.on("DELETE", "/app/installations/7", 404, {"message": "Not Found"})
+    with pytest.raises(GitHubError) as raised:
+        await uninstall(http, "123", CryptographySigner(rsa_key), 1_000_000, Installation(7, "x"))
+    assert raised.value.status == 404
 
 
 async def test_scoped_token_request_carries_exactly_the_permissions(

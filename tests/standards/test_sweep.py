@@ -1,7 +1,10 @@
+from steward.accounts import Accounts
 from steward.github.http import GitHubError
-from steward.github.models import InstalledRepo, RepoRef
+from steward.github.models import Installation, InstalledRepo, RepoRef
 from steward.standards.sweep import sweep
 
+ACCOUNTS = Accounts.parse("o", "")
+INSTALLATIONS = [Installation(1, "o"), Installation(2, "o")]
 REPOS = {
     1: [
         InstalledRepo(RepoRef("o", "a"), archived=False, topics=()),
@@ -25,7 +28,7 @@ async def test_every_managed_repository_is_audited_once() -> None:
     async def audit(installation: int, repo: RepoRef) -> None:
         audited.append((installation, repo.name))
 
-    assert await sweep([1, 2], _repositories, audit) == 3
+    assert await sweep(INSTALLATIONS, ACCOUNTS, _repositories, audit) == 3
     assert audited == [(1, "a"), (2, "b"), (2, "c")]
 
 
@@ -37,5 +40,19 @@ async def test_one_failing_audit_does_not_stop_the_others() -> None:
             raise GitHubError(502, "/x")
         audited.append(repo.name)
 
-    assert await sweep([1, 2], _repositories, audit) == 2
+    assert await sweep(INSTALLATIONS, ACCOUNTS, _repositories, audit) == 2
     assert audited == ["a", "c"]
+
+
+async def test_installations_of_unlisted_accounts_are_not_listed_or_audited() -> None:
+    listed: list[int] = []
+
+    async def repositories(installation: int) -> list[InstalledRepo]:
+        listed.append(installation)
+        return REPOS[installation]
+
+    async def audit(installation: int, repo: RepoRef) -> None:
+        raise AssertionError(repo)
+
+    assert await sweep([Installation(2, "stranger")], ACCOUNTS, repositories, audit) == 0
+    assert listed == []

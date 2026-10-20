@@ -136,6 +136,34 @@ def test_signed_workflow_run_from_an_ignored_repository_queues_nothing() -> None
     assert _post(body, "workflow_run", _sign(body)).json() == {"queued": 0}
 
 
+def test_signed_push_from_an_unlisted_account_queues_nothing() -> None:
+    payload = json.loads(PUSH_FIXTURE.read_text(encoding="utf-8"))
+    payload["repository"]["owner"]["login"] = "stranger"
+    body = json.dumps(payload).encode()
+    assert _post(body, "push", _sign(body)).json() == {"queued": 0}
+
+
+def _installation_created(login: str) -> bytes:
+    return json.dumps(
+        {"action": "created", "installation": {"id": 9, "account": {"login": login}}}
+    ).encode()
+
+
+def test_installation_on_the_owners_account_is_kept() -> None:
+    body = _installation_created("Isma-L154")
+    response = _post(body, "installation", _sign(body))
+    assert response.status_code == 202
+    assert response.json() == {"queued": 0}
+
+
+def test_installation_on_an_unlisted_account_is_uninstalled() -> None:
+    # The throwaway App key makes GitHub refuse the uninstall: the attempt shows as a 502.
+    body = _installation_created("stranger")
+    response = _post(body, "installation", _sign(body))
+    assert response.status_code == 502
+    assert response.json() == {"error": "github_error"}
+
+
 def test_weekly_sweep_runs_without_crashing() -> None:
     response = httpx.get(
         f"{BASE_URL}/cdn-cgi/local/scheduled",

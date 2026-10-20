@@ -10,6 +10,11 @@ routes = [{ pattern = "steward.cloudils.com", custom_domain = true }]
 [vars]
 # The email the owner's commits must carry (standards check); not a secret.
 OWNER_EMAIL = "ismaleonsaenz@gmail.com"
+# The owner's account. Steward acts only on it and on ALLOWED_ACCOUNTS; it uninstalls itself
+# from any other account.
+OWNER_LOGIN = "Isma-L154"
+# Other accounts Steward may merge for, comma-separated logins; empty means the owner only.
+ALLOWED_ACCOUNTS = ""
 
 [triggers]
 # Weekly standards sweep, Mondays 06:00 UTC. Cloudflare numbers weekdays from 1 = Sunday, so
