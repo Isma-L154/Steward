@@ -68,7 +68,14 @@ def _installed(*names: str, archived: bool = False, topics: tuple[str, ...] = ()
 
 def _client(http: FakeHttp, rsa_key: RSAPrivateKey) -> HubClient:
     http.on(
-        "POST", ACCESS_TOKENS_PATH, 201, {"token": "ghs_ro", "expires_at": "2099-01-01T00:00:00Z"}
+        "POST",
+        ACCESS_TOKENS_PATH,
+        201,
+        {
+            "token": "ghs_ro",
+            "expires_at": "2099-01-01T00:00:00Z",
+            "permissions": dict(READ_ONLY_PERMISSIONS),
+        },
     )
     tokens = read_only_tokens(http, "123", CryptographySigner(rsa_key), lambda: 0.0)
     return HubClient(GitHubApi(http, tokens, 42))
