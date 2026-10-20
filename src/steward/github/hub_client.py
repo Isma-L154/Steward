@@ -16,10 +16,12 @@ from steward.hub.snapshot import HubRepo, OpenIssue, OpenPull
 from steward.hub.text import is_safe_repo
 from steward.repos import is_managed
 
-# Everything the hub reads, and nothing that writes.
+# Everything the hub reads, and nothing that writes. Contents is needed even though no file
+# is read: a private repository returns its default branch and commits only with it.
 READ_ONLY_PERMISSIONS: Mapping[str, str] = MappingProxyType(
     {
         "metadata": "read",
+        "contents": "read",
         "pull_requests": "read",
         "issues": "read",
         "checks": "read",

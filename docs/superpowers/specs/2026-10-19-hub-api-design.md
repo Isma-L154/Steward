@@ -71,7 +71,7 @@ Health and the report come from the same GitHub snapshot (below). A report build
 Each refresh makes a fixed number of calls, whatever the repository count:
 
 1. `installation_ids` (App JWT). One installation is expected; each extra one adds calls 2 to 4.
-2. A **read-only installation token**: `POST /app/installations/{id}/access_tokens` with `{"permissions": {"metadata": "read", "pull_requests": "read", "issues": "read", "checks": "read", "statuses": "read", "deployments": "read", "vulnerability_alerts": "read"}}`. `InstallationTokens` takes an optional permission set and caches each set separately. The merge queue and audits keep using the full token.
+2. A **read-only installation token**: `POST /app/installations/{id}/access_tokens` with `{"permissions": {"metadata": "read", "contents": "read", "pull_requests": "read", "issues": "read", "checks": "read", "statuses": "read", "deployments": "read", "vulnerability_alerts": "read"}}`. `InstallationTokens` takes an optional permission set and caches each set separately. The merge queue and audits keep using the full token.
 3. `GET /installation/repositories?per_page=100` (existing `installed_repositories`), kept to managed repositories (`repos.is_managed`).
 4. **One GraphQL query** with one aliased `repository(owner:, name:)` block per managed repository (`r0`, `r1`, …), with owner and name passed as variables, never interpolated. Per repository it reads:
    - `defaultBranchRef.target` (Commit): `committedDate`, `statusCheckRollup { state }`
