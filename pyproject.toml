@@ -29,7 +29,9 @@ package = false
 exclude-newer = "7 days"
 # The Pyodide index publishes no upload dates, so the cooldown would hide its wheels.
 # These are pinned to the exact versions bundled with the Workers Pyodide runtime.
-exclude-newer-package = { pydantic = false, pydantic-core = false, pyyaml = false }
+# certifi is a CA bundle: its updates withdraw trust in compromised roots, so a week's wait
+# would keep them trusted.
+exclude-newer-package = { pydantic = false, pydantic-core = false, pyyaml = false, certifi = "12 hours" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
