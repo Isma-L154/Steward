@@ -89,7 +89,11 @@ class Default(WorkerEntrypoint):
     async def scheduled(self, controller: Any, env: Any, ctx: Any) -> None:
         try:
             audited = await run_weekly_sweep(self.env)
+            print(f"weekly sweep audited {audited} repositories")
         except (MissingConfig, GitHubError) as error:
             print(f"weekly sweep failed: {error}")
-            return
-        print(f"weekly sweep audited {audited} repositories")
+        # The report reads GitHub's current state, so it is built even after a failed sweep.
+        report = await self.env.HUB_DATA.getByName("hub").fetch(
+            "https://hub/build-report", method="POST"
+        )
+        print(f"weekly report answered {report.status}")
