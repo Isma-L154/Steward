@@ -1,0 +1,76 @@
+import asyncio
+from collections.abc import Awaitable, Callable, Sequence
+from datetime import datetime, timedelta
+from typing import Any
+
+from steward.hub.health import health
+from steward.hub.ports import HubStore
+from steward.hub.report import report
+from steward.hub.snapshot import HubRepo
+from steward.hub.text import iso
+
+HEALTH_TTL = timedelta(minutes=5)
+_HEALTH = "health"
+_REPORT = "report"
+
+
+class HubService:
+    """Serves health from a 5-minute cache and the stored weekly report. One lock covers
+    every read-then-refresh, so callers arriving during a refresh wait for it instead of
+    spending the installation's GitHub budget again."""
+
+    def __init__(
+        self,
+        source: Callable[[], Awaitable[Sequence[HubRepo]]],
+        store: HubStore,
+        clock: Callable[[], datetime],
+        app_login: str,
+    ) -> None:
+        self._source = source
+        self._store = store
+        self._clock = clock
+        self._app_login = app_login
+        self._lock = asyncio.Lock()
+
+    async def health(self) -> dict[str, Any]:
+        async with self._lock:
+            cached = await self._store.get(_HEALTH)
+            if cached is not None and self._is_fresh(cached.get("fetched_at")):
+                body: dict[str, Any] = cached["body"]
+                return body
+            return await self._store_health(await self._source())
+
+    async def report(self) -> dict[str, Any]:
+        async with self._lock:
+            stored = await self._store.get(_REPORT)
+            if stored is not None:
+                return stored
+            return await self._build_report()
+
+    async def build_report(self) -> dict[str, Any]:
+        async with self._lock:
+            return await self._build_report()
+
+    async def _build_report(self) -> dict[str, Any]:
+        # Read GitHub before touching storage: a failure leaves the previous report as it was.
+        repos = await self._source()
+        body = report(repos, self._clock(), self._app_login)
+        await self._store.put(_REPORT, body)
+        await self._store_health(repos)
+        return body
+
+    async def _store_health(self, repos: Sequence[HubRepo]) -> dict[str, Any]:
+        now = self._clock()
+        body = health(repos, now, self._app_login)
+        await self._store.put(_HEALTH, {"fetched_at": iso(now), "body": body})
+        return body
+
+    def _is_fresh(self, fetched_at: object) -> bool:
+        if not isinstance(fetched_at, str):
+            return False
+        try:
+            age = self._clock() - datetime.fromisoformat(fetched_at)
+        except ValueError:
+            return False
+        # A stamp from the future (a clock jump) must not keep a cache alive indefinitely.
+        return timedelta(0) <= age < HEALTH_TTL
