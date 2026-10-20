@@ -17,6 +17,7 @@ from steward.github.hub_client import HubClient, account_repos, read_only_tokens
 from steward.github.models import graphql_login
 from steward.hub.service import HubService
 from steward.hub.snapshot import HubRepo
+from steward.standards.report import ISSUE_LABEL
 from steward.worker.fetch_http import WorkersFetch
 from steward.worker.responses import error_response, json_response
 from steward.worker.webcrypto import WebCryptoSigner
@@ -79,7 +80,9 @@ class HubData(DurableObject):
                     )
                     return await account_repos(
                         ids,
-                        lambda installation: HubClient(GitHubApi(self._http, tokens, installation)),
+                        lambda installation: HubClient(
+                            GitHubApi(self._http, tokens, installation), ISSUE_LABEL
+                        ),
                     )
 
                 self._service = HubService(

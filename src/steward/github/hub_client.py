@@ -44,7 +44,7 @@ fragment Health on Repository {
     nodes { number title author { login } labels(first: 20) { nodes { name } } }
   }
   issues(states: OPEN) { totalCount }
-  standards: issues(states: OPEN, labels: ["standards"], first: 5) {
+  standards: issues(states: OPEN, labels: [$label], first: 5) {
     totalCount
     nodes { number author { login } body }
   }
@@ -153,7 +153,9 @@ def read_only_tokens(
 
 def build_query(count: int) -> str:
     """One aliased block per repository; owners and names only ever travel as variables."""
-    declarations = ", ".join(f"$o{i}: String!, $n{i}: String!" for i in range(count))
+    declarations = ", ".join(
+        ["$label: String!", *(f"$o{i}: String!, $n{i}: String!" for i in range(count))]
+    )
     blocks = "\n".join(
         f"  r{i}: repository(owner: $o{i}, name: $n{i}) {{ ...Health }}" for i in range(count)
     )
@@ -238,8 +240,9 @@ def parse_repo(repo: RepoRef, block: Any) -> HubRepo:
 class HubClient:
     """Reads every managed repository of one installation in three calls."""
 
-    def __init__(self, api: GitHubApi) -> None:
+    def __init__(self, api: GitHubApi, standards_label: str) -> None:
         self._api = api
+        self._standards_label = standards_label
 
     async def repos(self) -> list[HubRepo]:
         installed = await GitHubClient(self._api).installed_repositories()
@@ -250,7 +253,7 @@ class HubClient:
         ]
         if not repos:
             return []
-        variables: dict[str, str] = {}
+        variables = {"label": self._standards_label}
         for index, repo in enumerate(repos):
             variables[f"o{index}"] = repo.owner
             variables[f"n{index}"] = repo.name
