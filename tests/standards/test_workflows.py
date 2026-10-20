@@ -54,7 +54,14 @@ def test_action_pinned_to_a_branch_is_reported_with_its_file() -> None:
 
 
 @pytest.mark.parametrize(
-    "ref", ["actions/checkout@v4", "actions/checkout@v4.2.1", "./x/y", "docker://alpine:3"]
+    "ref",
+    [
+        "actions/checkout@v4",
+        "actions/checkout@v4.2.1",
+        "./x/y",
+        "$/.github/actions/x",
+        "docker://alpine:3",
+    ],
 )
 def test_tags_shas_local_and_docker_references_pass(ref: str) -> None:
     pinned = CI.replace(f"actions/checkout@{SHA}", ref)
