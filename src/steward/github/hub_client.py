@@ -6,11 +6,12 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, ValidationError
 from pydantic.alias_generators import to_camel
 
+from steward.accounts import Accounts
 from steward.github.api import GitHubApi
 from steward.github.app_auth import InstallationTokens, Signer
 from steward.github.client import GitHubClient
 from steward.github.http import HttpClient
-from steward.github.models import RepoRef
+from steward.github.models import Installation, RepoRef
 from steward.hub.snapshot import HubRepo, OpenIssue, OpenPull
 from steward.hub.text import is_safe_repo
 from steward.repos import is_managed
@@ -262,9 +263,14 @@ class HubClient:
 
 
 async def account_repos(
-    installations: Sequence[int], client_for: Callable[[int], HubClient]
+    installations: Sequence[Installation],
+    accounts: Accounts,
+    client_for: Callable[[int], HubClient],
 ) -> list[HubRepo]:
+    """The owner's repositories only: other allowed accounts trust Steward with merges, not
+    with showing their private repositories on the owner's hub."""
     repos: list[HubRepo] = []
     for installation in installations:
-        repos.extend(await client_for(installation).repos())
+        if accounts.is_owner(installation.account):
+            repos.extend(await client_for(installation.id).repos())
     return repos
