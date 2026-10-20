@@ -94,7 +94,7 @@ No Workers imports, tested on CPython, same conventions as `dependabot/` and `st
 - `snapshot.py`: the frozen dataclasses.
 - `health.py`: `health(snapshots, now) -> Health`, including the state mappings below.
 - `report.py`: `report(snapshots, now) -> Report`.
-- `contract.py`: serializes `Health` and `Report` to the JSON below from an explicit field list. GitHub JSON is never passed through.
+- `health.py` and `report.py` build the JSON below from an explicit field list; GitHub JSON is never passed through. (Planned as a separate `contract.py`; folded in during implementation.)
 - `text.py`: title cleaning (Unicode categories `Cc` and `Cf` removed, which includes bidi overrides; whitespace collapsed; cut to 200 characters) and URL building.
 - `github/hub_client.py` holds the query and the parsing, behind a small `Protocol` port so `HubData` is tested with a fake.
 
@@ -146,6 +146,7 @@ All times are ISO 8601 UTC with `Z`. All `url` values are built by Steward from 
 }
 ```
 
+- `pull_requests.dependabot` is `null` when more than 100 pull requests are open, since the count would be short.
 - When a field cannot be read: `ci`, `deploy.state` and `standards.state` read `unknown`; `deploy.at` and `last_commit_at` are `null`; the count objects are `null`; `standards.url` and `standards.findings` are `null` unless `state` is `failing`.
 - `issues.open` counts every open issue, the standards issue included.
 - `security_alerts` counts by severity only, never advisory details.
@@ -159,13 +160,15 @@ All times are ISO 8601 UTC with `Z`. All `url` values are built by Steward from 
   "major_failing":   [],
   "updates_failing": [],
   "updates_blocked": [],
-  "standards":       [{ "repo": "Isma-L154/nextsode", "url": "https://github.com/Isma-L154/nextsode/issues/7", "findings": 4 }]
+  "standards":       [{ "repo": "Isma-L154/nextsode", "url": "https://github.com/Isma-L154/nextsode/issues/7", "findings": 4 }],
+  "unknown":         []
 }
 ```
 
 - `major_ready`, `major_failing`, `updates_failing` and `updates_blocked` are open Dependabot PRs carrying the `major-ready`, `major-broken`, `update-broken` and `update-blocked` label. A PR by anyone else is left out even if labelled.
 - `updates_blocked` is an addition to the original design: branch updates GitHub refused (#18) also wait for the owner.
 - Only what is open when the report is generated appears.
+- `unknown` lists the repositories whose pull requests or standards issue could not be read; they get no items in the other lists, so none of them reads as having nothing pending.
 
 ### Errors
 
