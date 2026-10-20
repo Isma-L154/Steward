@@ -1,0 +1,21 @@
+# A stand-in for the hub: it reaches Steward's HubApi through real service bindings, one with
+# the hub's props and one without, so the integration tests exercise the binding-only checks.
+# Run next to Steward's dev server: npx wrangler dev -c tests/integration/caller/wrangler.toml
+name = "steward-hub-caller"
+main = "caller.js"
+compatibility_date = "2026-09-18"
+workers_dev = false
+
+[dev]
+port = 8788
+
+[[services]]
+binding = "WITH_PROPS"
+service = "steward"
+entrypoint = "HubApi"
+props = { caller = "hub" }
+
+[[services]]
+binding = "NO_PROPS"
+service = "steward"
+entrypoint = "HubApi"

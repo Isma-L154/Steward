@@ -1,4 +1,3 @@
-import json
 from http import HTTPStatus
 from typing import Any
 from urllib.parse import urlparse
@@ -6,6 +5,7 @@ from urllib.parse import urlparse
 from workers import Response, WorkerEntrypoint
 
 from steward.config import MissingConfig, load_config
+from steward.hub.relay import relay
 from steward.hub.request import HUB_CALLER, check_caller, check_request
 from steward.worker.responses import error_response, json_response
 
@@ -34,5 +34,10 @@ class HubApi(WorkerEntrypoint):
         if rejection is not None:
             return error_response(rejection.code, rejection.status)
         route = url.path.removeprefix("/v1")
-        response = await self.env.HUB_DATA.getByName("hub").fetch(f"https://hub{route}")
-        return json_response(json.loads(await response.text()), HTTPStatus(int(response.status)))
+
+        async def call() -> tuple[int, str]:
+            response = await self.env.HUB_DATA.getByName("hub").fetch(f"https://hub{route}")
+            return int(response.status), await response.text()
+
+        body, status = await relay(call)
+        return json_response(body, status)

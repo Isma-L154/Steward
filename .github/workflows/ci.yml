@@ -69,7 +69,8 @@ jobs:
         run: uv run pytest -m integration
         env:
           STEWARD_BASE_URL: http://localhost:8787
+          STEWARD_CALLER_URL: http://localhost:8788
           STEWARD_WEBHOOK_SECRET: ci-webhook-secret
-      - name: Dev server log
+      - name: Dev server logs
         if: failure()
-        run: cat wrangler-dev.log
+        run: cat wrangler-dev.log caller-dev.log

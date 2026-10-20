@@ -4,7 +4,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Protocol
 
-from steward.github.http import GitHubError, HttpClient
+from steward.github.http import GitHubError, HttpClient, answer_detail
 
 API = "https://api.github.com"
 API_HEADERS = {
@@ -41,7 +41,7 @@ async def bot_login(http: HttpClient, app_id: str, signer: Signer, now: int) -> 
     headers = {**API_HEADERS, "Authorization": f"Bearer {await app_jwt(app_id, signer, now)}"}
     response = await http.request("GET", f"{API}/app", headers)
     if response.status != 200:  # noqa: PLR2004 - GitHub's "OK"
-        raise GitHubError(response.status, "/app")
+        raise GitHubError(response.status, "/app", answer_detail(response.body))
     return f"{json.loads(response.body)['slug']}[bot]"
 
 
@@ -49,7 +49,7 @@ async def installation_ids(http: HttpClient, app_id: str, signer: Signer, now: i
     headers = {**API_HEADERS, "Authorization": f"Bearer {await app_jwt(app_id, signer, now)}"}
     response = await http.request("GET", f"{API}/app/installations?per_page=100", headers)
     if response.status != 200:  # noqa: PLR2004 - GitHub's "OK"
-        raise GitHubError(response.status, "/app/installations")
+        raise GitHubError(response.status, "/app/installations", answer_detail(response.body))
     return [int(item["id"]) for item in json.loads(response.body)]
 
 
@@ -87,13 +87,13 @@ class InstallationTokens:
         headers = {**API_HEADERS, "Authorization": f"Bearer {jwt}"}
         response = await self._http.request("POST", f"{API}{path}", headers, self._body)
         if response.status != 201:  # noqa: PLR2004 - GitHub's "Created"
-            raise GitHubError(response.status, path)
+            raise GitHubError(response.status, path, answer_detail(response.body))
         body = json.loads(response.body)
         # GitHub states the token's permissions; one wider than asked must never be used.
         if self._permissions is not None and not _within(
             body.get("permissions"), self._permissions
         ):
-            raise GitHubError(response.status, path)
+            raise GitHubError(response.status, path, "granted permissions differ from the request")
         expires_at = datetime.fromisoformat(body["expires_at"]).timestamp()
         self._cache[installation_id] = (body["token"], expires_at)
         return str(body["token"])

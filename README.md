@@ -79,7 +79,8 @@ uv run mypy src tests
 
 cp .dev.vars.example .dev.vars          # fill in the values below
 uv run pywrangler dev --test-scheduled  # http://localhost:8787/health
-uv run pytest -m integration            # against the running dev server
+npx wrangler dev -c tests/integration/caller/wrangler.toml  # stand-in hub on :8788, bound to HubApi
+uv run pytest -m integration            # against both running dev servers
 ```
 
 | Variable | Description |
