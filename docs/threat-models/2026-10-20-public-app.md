@@ -71,7 +71,8 @@ Recommendation: feasible and acceptable once threats 1 to 5 are mitigated. Until
 - [ ] Standards only on the owner's account (3). Verified by the push and sweep tests.
 - [ ] Per-installation webhook rate limit (4). Verified by the integration test with two installations.
 - [ ] Size cap on parsed YAML (5). Verified by the oversized-file test.
-- [ ] "Only select repositories" for allowlisted accounts, and `SECURITY.md` updated (6). Verified by the installation listing check before enabling.
+- [x] `SECURITY.md` says which accounts Steward acts on and how to install it (6), #55.
+- [ ] Before enabling, and after each new account installs: the App's installations page (`https://github.com/settings/apps/app-steward/installations`) lists only the owner and `ALLOWED_ACCOUNTS`, and every account but the owner's installed with "Only select repositories" (6). This needs the App's own credentials, so it is a manual check at the switch.
 
 ## Accepted risks
 
