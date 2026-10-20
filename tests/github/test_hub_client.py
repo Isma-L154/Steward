@@ -131,8 +131,11 @@ async def test_refresh_makes_three_calls_per_installation(rsa_key: RSAPrivateKey
 
 
 def test_read_only_permissions_are_exactly_reads() -> None:
+    assert set(READ_ONLY_PERMISSIONS.values()) == {"read"}
     assert dict(READ_ONLY_PERMISSIONS) == {
         "metadata": "read",
+        # Private repositories return their default branch and commits only with this.
+        "contents": "read",
         "pull_requests": "read",
         "issues": "read",
         "checks": "read",
