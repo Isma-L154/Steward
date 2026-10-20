@@ -11,7 +11,7 @@ from workers import DurableObject, Response
 
 from steward.config import Config, MissingConfig, load_config
 from steward.github.api import GitHubApi
-from steward.github.app_auth import bot_login, installation_ids
+from steward.github.app_auth import bot_login, installations
 from steward.github.http import GitHubError
 from steward.github.hub_client import HubClient, account_repos, read_only_tokens
 from steward.github.models import graphql_login
@@ -75,11 +75,12 @@ class HubData(DurableObject):
                 login = await bot_login(self._http, config.app_id, signer, int(time.time()))
 
                 async def source() -> list[HubRepo]:
-                    ids = await installation_ids(
+                    installed = await installations(
                         self._http, config.app_id, signer, int(time.time())
                     )
                     return await account_repos(
-                        ids,
+                        installed,
+                        config.accounts,
                         lambda installation: HubClient(
                             GitHubApi(self._http, tokens, installation), ISSUE_LABEL
                         ),

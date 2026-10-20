@@ -10,6 +10,11 @@ routes = [{ pattern = "steward.cloudils.com", custom_domain = true }]
 [vars]
 # The email the owner's commits must carry (standards check); not a secret.
 OWNER_EMAIL = "ismaleonsaenz@gmail.com"
+# The owner's account. Steward acts only on it and on ALLOWED_ACCOUNTS; it uninstalls itself
+# from any other account.
+OWNER_LOGIN = "Isma-L154"
+# Other accounts Steward may merge for, comma-separated logins; empty means the owner only.
+ALLOWED_ACCOUNTS = ""
 
 [triggers]
 # Weekly standards sweep, Mondays 06:00 UTC. Cloudflare numbers weekdays from 1 = Sunday, so
@@ -44,6 +49,13 @@ new_sqlite_classes = ["HubData"]
 name = "WEBHOOK_LIMIT"
 namespace_id = "1001"
 simple = { limit = 120, period = 60 }
+
+# Signed deliveries, keyed by installation: GitHub sends every installation's webhooks from
+# the same pool of IPs, so one busy installation must not spend another's share.
+[[ratelimits]]
+name = "INSTALLATION_LIMIT"
+namespace_id = "1003"
+simple = { limit = 60, period = 60 }
 
 # Calls from the hub's service binding, keyed by the caller.
 [[ratelimits]]

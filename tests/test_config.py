@@ -9,9 +9,10 @@ from cryptography.hazmat.primitives.serialization import (
     PrivateFormat,
 )
 
+from steward.accounts import Accounts
 from steward.config import MissingConfig, load_config
 
-NAMES = ("APP_ID", "PRIVATE_KEY", "WEBHOOK_SECRET", "OWNER_EMAIL")
+NAMES = ("APP_ID", "PRIVATE_KEY", "WEBHOOK_SECRET", "OWNER_EMAIL", "OWNER_LOGIN")
 
 
 def _env(rsa_pem: str, **overrides: str) -> SimpleNamespace:
@@ -20,6 +21,7 @@ def _env(rsa_pem: str, **overrides: str) -> SimpleNamespace:
         "PRIVATE_KEY": rsa_pem,
         "WEBHOOK_SECRET": "s3cret",
         "OWNER_EMAIL": "ismaleonsaenz@gmail.com",
+        "OWNER_LOGIN": "Isma-L154",
     } | overrides
     return SimpleNamespace(**values)
 
@@ -61,3 +63,21 @@ def test_non_rsa_private_key_is_missing_config(rsa_pem: str) -> None:
     )
     with pytest.raises(MissingConfig, match="PRIVATE_KEY"):
         load_config(_env(rsa_pem, PRIVATE_KEY=ec_pem))
+
+
+def test_accounts_default_to_the_owner_only(rsa_pem: str) -> None:
+    assert load_config(_env(rsa_pem)).accounts == Accounts.parse("Isma-L154", "")
+
+
+def test_allowed_accounts_are_read(rsa_pem: str) -> None:
+    accounts = load_config(_env(rsa_pem, ALLOWED_ACCOUNTS="Wal-014")).accounts
+    assert accounts.may_act("Wal-014")
+    assert accounts.is_owner("Isma-L154")
+
+
+@pytest.mark.parametrize(
+    ("name", "value"), [("OWNER_LOGIN", "not a login"), ("ALLOWED_ACCOUNTS", "a,,b")]
+)
+def test_unparseable_accounts_are_missing_config(rsa_pem: str, name: str, value: str) -> None:
+    with pytest.raises(MissingConfig, match=name):
+        load_config(_env(rsa_pem, **{name: value}))

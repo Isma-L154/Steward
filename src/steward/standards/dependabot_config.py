@@ -1,9 +1,8 @@
 from fnmatch import fnmatch
 from pathlib import PurePosixPath
 
-import yaml
-
 from steward.standards.snapshot import Finding, RepoSnapshot, code_span
+from steward.standards.yaml_files import load_yaml
 
 _VENDORED = frozenset({"node_modules", "vendor", ".venv", "python_modules"})
 _MANIFESTS = (
@@ -43,10 +42,7 @@ def detected_ecosystems(paths: frozenset[str]) -> frozenset[str]:
 
 
 def _configured(text: str) -> frozenset[str] | None:
-    try:
-        document = yaml.safe_load(text)
-    except yaml.YAMLError:
-        return None
+    document = load_yaml(text)
     updates = document.get("updates") if isinstance(document, dict) else None
     if not isinstance(updates, list):
         return None

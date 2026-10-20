@@ -13,6 +13,8 @@ import pytest
 from steward.webhooks.events import MAX_BODY_BYTES
 from tests.integration.server import BASE_URL, TIMEOUT
 
+# The per-installation webhook budget (INSTALLATION_LIMIT in wrangler.toml).
+INSTALLATION_LIMIT = 60
 SECRET = os.environ.get("STEWARD_WEBHOOK_SECRET", "ci-webhook-secret").encode()
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "workflow_run_completed.json"
 
@@ -136,6 +138,42 @@ def test_signed_workflow_run_from_an_ignored_repository_queues_nothing() -> None
     assert _post(body, "workflow_run", _sign(body)).json() == {"queued": 0}
 
 
+def test_signed_push_from_an_allowed_account_queues_merges_but_no_audit() -> None:
+    # The dev server allows Wal-014 besides the owner (see the start-dev-server action).
+    payload = json.loads(PUSH_FIXTURE.read_text(encoding="utf-8"))
+    payload["repository"]["owner"]["login"] = "Wal-014"
+    body = json.dumps(payload).encode()
+    assert _post(body, "push", _sign(body)).json() == {"queued": 1}
+
+
+def test_signed_push_from_an_unlisted_account_queues_nothing() -> None:
+    payload = json.loads(PUSH_FIXTURE.read_text(encoding="utf-8"))
+    payload["repository"]["owner"]["login"] = "stranger"
+    body = json.dumps(payload).encode()
+    assert _post(body, "push", _sign(body)).json() == {"queued": 0}
+
+
+def _installation_created(login: str) -> bytes:
+    return json.dumps(
+        {"action": "created", "installation": {"id": 9, "account": {"login": login}}}
+    ).encode()
+
+
+def test_installation_on_the_owners_account_is_kept() -> None:
+    body = _installation_created("Isma-L154")
+    response = _post(body, "installation", _sign(body))
+    assert response.status_code == 202
+    assert response.json() == {"queued": 0}
+
+
+def test_installation_on_an_unlisted_account_is_uninstalled() -> None:
+    # The throwaway App key makes GitHub refuse the uninstall: the attempt shows as a 502.
+    body = _installation_created("stranger")
+    response = _post(body, "installation", _sign(body))
+    assert response.status_code == 502
+    assert response.json() == {"error": "github_error"}
+
+
 def test_weekly_sweep_runs_without_crashing() -> None:
     response = httpx.get(
         f"{BASE_URL}/cdn-cgi/local/scheduled",
@@ -144,3 +182,29 @@ def test_weekly_sweep_runs_without_crashing() -> None:
     )
     assert response.status_code == 200
     assert response.json()["outcome"] == "ok"
+
+
+def _push_from(installation: int) -> bytes:
+    payload = json.loads(PUSH_FIXTURE.read_text(encoding="utf-8"))
+    payload["ref"] = "refs/heads/feature/x"
+    payload["installation"]["id"] = installation
+    return json.dumps(payload).encode()
+
+
+def test_one_installation_cannot_spend_anothers_budget() -> None:
+    # Last in the file: it spends installation A's budget. Neither id is the fixtures' (42).
+    # The limit counts in fixed one-minute windows, so allow for a burst across two of them.
+    busy, quiet = _push_from(1001), _push_from(1002)
+    headers = {"X-GitHub-Event": "push", "Content-Type": "application/json"}
+    answers: list[httpx.Response] = []
+    with httpx.Client(base_url=BASE_URL, timeout=TIMEOUT) as client:
+        while len(answers) <= 2 * INSTALLATION_LIMIT:
+            signed = {**headers, "X-Hub-Signature-256": _sign(busy)}
+            answers.append(client.post("/webhook", content=busy, headers=signed))
+            if answers[-1].status_code == httpx.codes.TOO_MANY_REQUESTS:
+                break
+        assert {answer.status_code for answer in answers[:-1]} == {202}
+        assert answers[-1].json() == {"error": "rate_limited"}
+        signed = {**headers, "X-Hub-Signature-256": _sign(quiet)}
+        other = client.post("/webhook", content=quiet, headers=signed)
+    assert other.status_code == 202

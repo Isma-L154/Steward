@@ -66,11 +66,11 @@ Recommendation: feasible and acceptable once threats 1 to 5 are mitigated. Until
 
 ## Open mitigations
 
-- [ ] Account allowlist, fail-closed at every entry, with self-uninstall of other accounts (1). Verified by the webhook, sweep and installation-event tests.
-- [ ] Hub reads only the owner's account (2). Verified by the `account_repos` filter test.
-- [ ] Standards only on the owner's account (3). Verified by the push and sweep tests.
-- [ ] Per-installation webhook rate limit (4). Verified by the integration test with two installations.
-- [ ] Size cap on parsed YAML (5). Verified by the oversized-file test.
+- [x] Account allowlist, fail-closed at every entry, with self-uninstall of other accounts (1), #50. Verified by the webhook, sweep and installation-event tests.
+- [x] Hub reads only the owner's account (2), #51. Verified by the `account_repos` filter test.
+- [x] Standards only on the owner's account (3), #52. Verified by the push and sweep tests.
+- [x] Per-installation webhook rate limit (4), #53. Verified by the integration test with two installations.
+- [x] Size cap on parsed YAML (5), #54. Verified by the oversized-file test.
 - [x] `SECURITY.md` says which accounts Steward acts on and how to install it (6), #55.
 - [ ] Before enabling, and after each new account installs: the App's installations page (`https://github.com/settings/apps/app-steward/installations`) lists only the owner and `ALLOWED_ACCOUNTS`, and every account but the owner's installed with "Only select repositories" (6). This needs the App's own credentials, so it is a manual check at the switch.
 

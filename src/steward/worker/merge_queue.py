@@ -42,6 +42,10 @@ class MergeQueue(DurableObject):
             return error_response("misconfigured", HTTPStatus.INTERNAL_SERVER_ERROR)
         job = json.loads(await request.text())
         repo = RepoRef(job["owner"], job["name"])
+        # The webhook already filters accounts; a job from anywhere else must not merge either.
+        if not config.accounts.may_act(repo.owner):
+            print(f"{repo.full_name}: account not allowed")
+            return error_response("forbidden", HTTPStatus.FORBIDDEN)
         signer = WebCryptoSigner(config.private_key_pkcs8)
         if self._tokens is None:
             self._tokens = InstallationTokens(self._http, config.app_id, signer, time.time)
