@@ -17,8 +17,9 @@ class FakeStandardsGitHub:
         self.asked_since = since
         return self.repo_snapshot
 
-    async def tracking_issue(self, repo: RepoRef, creator: str) -> TrackingIssue | None:
+    async def tracking_issue(self, repo: RepoRef, creator: str, label: str) -> TrackingIssue | None:
         assert creator == "app-steward[bot]"
+        assert label == "standards"
         return self.issue
 
     async def create_issue(self, repo: RepoRef, title: str, body: str, label: str) -> None:
