@@ -15,6 +15,7 @@ from steward.standards.workflows import (
     check_ci_triggers,
     check_concurrency,
     check_permissions,
+    parse_workflows,
 )
 
 
@@ -45,11 +46,12 @@ _ORDER = [rule.id for rule in RULES]
 def run_checks(
     snapshot: RepoSnapshot, owner_email: str, trusted_bots: frozenset[str]
 ) -> list[Finding]:
+    workflows = parse_workflows(snapshot)
     findings = [
-        *check_ci_triggers(snapshot),
-        *check_actions_pinned(snapshot),
-        *check_permissions(snapshot),
-        *check_concurrency(snapshot),
+        *check_ci_triggers(snapshot, workflows),
+        *check_actions_pinned(workflows),
+        *check_permissions(workflows),
+        *check_concurrency(workflows),
         *check_dependabot(snapshot),
         *check_required_checks(snapshot),
         *check_no_direct_push(snapshot),
