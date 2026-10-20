@@ -1,3 +1,6 @@
+import pytest
+import yaml
+
 from steward.standards.rules import RULES, run_checks
 from tests.standards.builders import OWNER_EMAIL, commit, snapshot
 
@@ -25,3 +28,19 @@ def test_findings_come_in_rule_order() -> None:
 def test_every_finding_rule_is_registered() -> None:
     registered = {rule.id for rule in RULES}
     assert {"workflow-unreadable", "ci-triggers", "readme", "agents", "ai-trace"} <= registered
+
+
+def test_each_workflow_is_parsed_once_per_audit(monkeypatch: pytest.MonkeyPatch) -> None:
+    repo = snapshot()
+    parsed: list[str] = []
+    real = yaml.safe_load
+
+    def spy(text: str) -> object:
+        parsed.append(text)
+        return real(text)
+
+    monkeypatch.setattr(yaml, "safe_load", spy)
+    run_checks(repo, OWNER_EMAIL, TRUSTED)
+    assert sorted(text for text in parsed if text in repo.workflows.values()) == sorted(
+        repo.workflows.values()
+    )

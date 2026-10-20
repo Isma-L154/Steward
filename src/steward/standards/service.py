@@ -35,7 +35,7 @@ class StandardsService:
             return []
         findings = run_checks(snapshot, self._owner_email, self._trusted_bots)
         body = render_body(repo, findings)
-        issue = await self._github.tracking_issue(repo, self._own_login)
+        issue = await self._github.tracking_issue(repo, self._own_login, ISSUE_LABEL)
         if findings and issue is None:
             await self._github.create_issue(repo, ISSUE_TITLE, body, ISSUE_LABEL)
         elif findings and issue is not None:
