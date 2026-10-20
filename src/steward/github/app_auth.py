@@ -65,7 +65,7 @@ class InstallationTokens:
         self._http = http
         # A token narrowed to these permissions; each instance caches its own tokens, so a
         # narrowed instance never hands out the App's full token.
-        self._body = None if permissions is None else json.dumps({"permissions": permissions})
+        self._body = None if permissions is None else json.dumps({"permissions": dict(permissions)})
         self._app_id = app_id
         self._signer = signer
         self._clock = clock
