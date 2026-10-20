@@ -10,6 +10,7 @@ from steward.webhooks.events import (
     InvalidPayload,
     PullRequestToEvaluate,
     RepoToAudit,
+    delivery_installation,
     installation_to_remove,
     pull_requests_to_evaluate,
     repos_to_audit,
@@ -190,3 +191,16 @@ def test_other_events_remove_nothing() -> None:
 def test_malformed_installation_event_is_invalid() -> None:
     with pytest.raises(InvalidPayload):
         installation_to_remove("installation", json.dumps({"action": "created"}), ACCOUNTS)
+
+
+def test_delivery_installation_is_read_from_any_event() -> None:
+    assert delivery_installation(json.dumps(_push())) == 42
+    assert delivery_installation(json.dumps(_payload())) == 42
+    assert delivery_installation(_installation("created", "stranger")) == 9
+
+
+@pytest.mark.parametrize(
+    "body", ['{"zen": "Keep it logically awesome."}', '{"installation": null}', "[]", "not json"]
+)
+def test_delivery_without_an_installation_has_none(body: str) -> None:
+    assert delivery_installation(body) is None

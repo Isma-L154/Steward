@@ -50,6 +50,13 @@ name = "WEBHOOK_LIMIT"
 namespace_id = "1001"
 simple = { limit = 120, period = 60 }
 
+# Signed deliveries, keyed by installation: GitHub sends every installation's webhooks from
+# the same pool of IPs, so one busy installation must not spend another's share.
+[[ratelimits]]
+name = "INSTALLATION_LIMIT"
+namespace_id = "1003"
+simple = { limit = 60, period = 60 }
+
 # Calls from the hub's service binding, keyed by the caller.
 [[ratelimits]]
 name = "HUB_LIMIT"
