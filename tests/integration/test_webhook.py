@@ -138,6 +138,14 @@ def test_signed_workflow_run_from_an_ignored_repository_queues_nothing() -> None
     assert _post(body, "workflow_run", _sign(body)).json() == {"queued": 0}
 
 
+def test_signed_push_from_an_allowed_account_queues_merges_but_no_audit() -> None:
+    # The dev server allows Wal-014 besides the owner (see the start-dev-server action).
+    payload = json.loads(PUSH_FIXTURE.read_text(encoding="utf-8"))
+    payload["repository"]["owner"]["login"] = "Wal-014"
+    body = json.dumps(payload).encode()
+    assert _post(body, "push", _sign(body)).json() == {"queued": 1}
+
+
 def test_signed_push_from_an_unlisted_account_queues_nothing() -> None:
     payload = json.loads(PUSH_FIXTURE.read_text(encoding="utf-8"))
     payload["repository"]["owner"]["login"] = "stranger"

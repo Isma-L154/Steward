@@ -78,9 +78,9 @@ class HubData(DurableObject):
                     installed = await installations(
                         self._http, config.app_id, signer, int(time.time())
                     )
-                    ids = [installation.id for installation in installed]
                     return await account_repos(
-                        ids,
+                        installed,
+                        config.accounts,
                         lambda installation: HubClient(
                             GitHubApi(self._http, tokens, installation), ISSUE_LABEL
                         ),

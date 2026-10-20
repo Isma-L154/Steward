@@ -9,6 +9,8 @@ runs:
         {
           echo "APP_ID=1"
           echo "WEBHOOK_SECRET=ci-webhook-secret"
+          # An allowed account besides the owner, so the tests can tell merges from audits.
+          echo "ALLOWED_ACCOUNTS=Wal-014"
           printf 'PRIVATE_KEY="%s"\n' "$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048)"
         } > .dev.vars
         uv run pywrangler dev --test-scheduled > wrangler-dev.log 2>&1 &

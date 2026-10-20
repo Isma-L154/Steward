@@ -9,11 +9,11 @@ from steward.github.models import Installation, RepoRef
 from steward.webhooks.events import (
     InvalidPayload,
     PullRequestToEvaluate,
-    RepoToAudit,
+    PushToDefault,
     delivery_installation,
     installation_to_remove,
     pull_requests_to_evaluate,
-    repos_to_audit,
+    pushes_to_default,
 )
 
 ACCOUNTS = Accounts.parse("Isma-L154", "Wal-014")
@@ -89,45 +89,45 @@ def _push() -> dict[str, Any]:
 
 
 def test_push_to_the_default_branch_is_audited() -> None:
-    assert repos_to_audit("push", json.dumps(_push()), ACCOUNTS) == [
-        RepoToAudit(installation_id=42, repo=RepoRef("Isma-L154", "nextsode"))
+    assert pushes_to_default("push", json.dumps(_push()), ACCOUNTS) == [
+        PushToDefault(installation_id=42, repo=RepoRef("Isma-L154", "nextsode"), audit=True)
     ]
 
 
 def test_push_to_another_branch_is_not_audited() -> None:
     payload = _push()
     payload["ref"] = "refs/heads/feature/x"
-    assert repos_to_audit("push", json.dumps(payload), ACCOUNTS) == []
+    assert pushes_to_default("push", json.dumps(payload), ACCOUNTS) == []
 
 
 def test_push_to_an_ignored_repository_is_not_audited() -> None:
     payload = _push()
     payload["repository"]["topics"] = ["steward-ignore"]
-    assert repos_to_audit("push", json.dumps(payload), ACCOUNTS) == []
+    assert pushes_to_default("push", json.dumps(payload), ACCOUNTS) == []
 
 
 def test_push_to_an_archived_repository_is_not_audited() -> None:
     payload = _push()
     payload["repository"]["archived"] = True
-    assert repos_to_audit("push", json.dumps(payload), ACCOUNTS) == []
+    assert pushes_to_default("push", json.dumps(payload), ACCOUNTS) == []
 
 
 def test_push_without_topics_or_archived_is_audited() -> None:
     payload = _push()
     del payload["repository"]["topics"]
     del payload["repository"]["archived"]
-    assert len(repos_to_audit("push", json.dumps(payload), ACCOUNTS)) == 1
+    assert len(pushes_to_default("push", json.dumps(payload), ACCOUNTS)) == 1
 
 
 def test_push_without_default_branch_is_invalid() -> None:
     payload = _push()
     del payload["repository"]["default_branch"]
     with pytest.raises(InvalidPayload):
-        repos_to_audit("push", json.dumps(payload), ACCOUNTS)
+        pushes_to_default("push", json.dumps(payload), ACCOUNTS)
 
 
 def test_other_events_are_not_audited() -> None:
-    assert repos_to_audit("workflow_run", json.dumps(_payload()), ACCOUNTS) == []
+    assert pushes_to_default("workflow_run", json.dumps(_payload()), ACCOUNTS) == []
 
 
 def test_workflow_run_in_an_ignored_repository_yields_nothing() -> None:
@@ -151,7 +151,7 @@ def test_workflow_run_from_an_allowlisted_account_is_evaluated() -> None:
 def test_push_from_an_unlisted_account_is_ignored() -> None:
     payload = _push()
     payload["repository"]["owner"]["login"] = "stranger"
-    assert repos_to_audit("push", json.dumps(payload), ACCOUNTS) == []
+    assert pushes_to_default("push", json.dumps(payload), ACCOUNTS) == []
 
 
 def _installation(event_action: str, login: str | None) -> str:
@@ -191,6 +191,14 @@ def test_other_events_remove_nothing() -> None:
 def test_malformed_installation_event_is_invalid() -> None:
     with pytest.raises(InvalidPayload):
         installation_to_remove("installation", json.dumps({"action": "created"}), ACCOUNTS)
+
+
+def test_push_from_an_allowlisted_account_is_not_audited() -> None:
+    payload = _push()
+    payload["repository"]["owner"]["login"] = "Wal-014"
+    assert pushes_to_default("push", json.dumps(payload), ACCOUNTS) == [
+        PushToDefault(installation_id=42, repo=RepoRef("Wal-014", "nextsode"), audit=False)
+    ]
 
 
 def test_delivery_installation_is_read_from_any_event() -> None:
