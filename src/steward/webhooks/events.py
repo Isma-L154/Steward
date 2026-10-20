@@ -2,7 +2,8 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from steward.github.models import RepoRef
+from steward.accounts import Accounts
+from steward.github.models import Installation, RepoRef
 from steward.repos import is_managed
 
 MAX_BODY_BYTES = 1_048_576
@@ -63,6 +64,15 @@ class _Installation(_Model):
     id: int
 
 
+class _InstalledAccount(_Installation):
+    account: _Owner | None
+
+
+class _InstallationEvent(_Model):
+    action: str
+    installation: _InstalledAccount
+
+
 class _WorkflowRunEvent(_Model):
     action: str
     installation: _Installation
@@ -80,7 +90,13 @@ class _PushEvent(_Model):
     repository: _PushedRepository
 
 
-def pull_requests_to_evaluate(event: str, body: str) -> list[PullRequestToEvaluate]:
+# Actions that grant the App access to an account's repositories.
+_GRANTS = {"installation": "created", "installation_repositories": "added"}
+
+
+def pull_requests_to_evaluate(
+    event: str, body: str, accounts: Accounts
+) -> list[PullRequestToEvaluate]:
     """The Dependabot pull requests whose CI just finished, or none for any other event."""
     if event != "workflow_run":
         return []
@@ -92,6 +108,8 @@ def pull_requests_to_evaluate(event: str, body: str) -> list[PullRequestToEvalua
         raise InvalidPayload(str(error.error_count())) from error
     if not is_managed(parsed.repository.archived, parsed.repository.topics):
         return []
+    if not accounts.may_act(parsed.repository.owner.login):
+        return []
     repo = RepoRef(parsed.repository.owner.login, parsed.repository.name)
     return [
         PullRequestToEvaluate(parsed.installation.id, repo, pr.number)
@@ -100,7 +118,7 @@ def pull_requests_to_evaluate(event: str, body: str) -> list[PullRequestToEvalua
     ]
 
 
-def repos_to_audit(event: str, body: str) -> list[RepoToAudit]:
+def repos_to_audit(event: str, body: str, accounts: Accounts) -> list[RepoToAudit]:
     """The repository whose default branch just moved, or none for any other event."""
     if event != "push":
         return []
@@ -113,4 +131,23 @@ def repos_to_audit(event: str, body: str) -> list[RepoToAudit]:
         repository.archived, repository.topics
     ):
         return []
+    if not accounts.may_act(repository.owner.login):
+        return []
     return [RepoToAudit(parsed.installation.id, RepoRef(repository.owner.login, repository.name))]
+
+
+def installation_to_remove(event: str, body: str, accounts: Accounts) -> Installation | None:
+    """An installation that just gave the App access to an account it must not act on."""
+    if event not in _GRANTS:
+        return None
+    try:
+        parsed = _InstallationEvent.model_validate_json(body)
+    except ValidationError as error:
+        raise InvalidPayload(str(error.error_count())) from error
+    if parsed.action != _GRANTS[event]:
+        return None
+    account = parsed.installation.account
+    login = account.login if account else ""
+    if accounts.may_act(login):
+        return None
+    return Installation(parsed.installation.id, login)

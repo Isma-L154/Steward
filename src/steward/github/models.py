@@ -21,6 +21,12 @@ class RepoRef:
 
 
 @dataclass(frozen=True)
+class Installation:
+    id: int
+    account: str
+
+
+@dataclass(frozen=True)
 class InstalledRepo:
     repo: RepoRef
     archived: bool

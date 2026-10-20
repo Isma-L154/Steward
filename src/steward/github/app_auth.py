@@ -2,9 +2,10 @@ import base64
 import json
 from collections.abc import Callable, Mapping
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from steward.github.http import GitHubError, HttpClient, answer_detail
+from steward.github.models import Installation
 
 API = "https://api.github.com"
 API_HEADERS = {
@@ -36,21 +37,44 @@ async def app_jwt(app_id: str, signer: Signer, now: int) -> str:
     return f"{header}.{payload}.{_b64url(await signer.sign(signing_input))}"
 
 
+async def _app_call(http: HttpClient, jwt: str, method: str, path: str, ok: int) -> Any:
+    headers = {**API_HEADERS, "Authorization": f"Bearer {jwt}"}
+    response = await http.request(method, f"{API}{path}", headers)
+    if response.status != ok:
+        route = path.split("?", maxsplit=1)[0]
+        raise GitHubError(response.status, route, answer_detail(response.body))
+    return json.loads(response.body) if response.body else None
+
+
 async def bot_login(http: HttpClient, app_id: str, signer: Signer, now: int) -> str:
     """The login this App's commits and comments carry, e.g. `app-steward[bot]`."""
-    headers = {**API_HEADERS, "Authorization": f"Bearer {await app_jwt(app_id, signer, now)}"}
-    response = await http.request("GET", f"{API}/app", headers)
-    if response.status != 200:  # noqa: PLR2004 - GitHub's "OK"
-        raise GitHubError(response.status, "/app", answer_detail(response.body))
-    return f"{json.loads(response.body)['slug']}[bot]"
+    app = await _app_call(http, await app_jwt(app_id, signer, now), "GET", "/app", 200)
+    return f"{app['slug']}[bot]"
 
 
-async def installation_ids(http: HttpClient, app_id: str, signer: Signer, now: int) -> list[int]:
-    headers = {**API_HEADERS, "Authorization": f"Bearer {await app_jwt(app_id, signer, now)}"}
-    response = await http.request("GET", f"{API}/app/installations?per_page=100", headers)
-    if response.status != 200:  # noqa: PLR2004 - GitHub's "OK"
-        raise GitHubError(response.status, "/app/installations", answer_detail(response.body))
-    return [int(item["id"]) for item in json.loads(response.body)]
+async def installations(
+    http: HttpClient, app_id: str, signer: Signer, now: int
+) -> list[Installation]:
+    jwt = await app_jwt(app_id, signer, now)
+    items = await _app_call(http, jwt, "GET", "/app/installations?per_page=100", 200)
+    return [
+        Installation(int(item["id"]), (item.get("account") or {}).get("login", ""))
+        for item in items
+    ]
+
+
+async def uninstall(
+    http: HttpClient, app_id: str, signer: Signer, now: int, installation: Installation
+) -> bool:
+    """Removes the App from another account. The App's own account is never removed, whatever
+    the configuration says: a mistyped owner must not uninstall the owner."""
+    jwt = await app_jwt(app_id, signer, now)
+    app = await _app_call(http, jwt, "GET", "/app", 200)
+    if installation.account.lower() == str(app["owner"]["login"]).lower():
+        print(f"installation {installation.id}: refusing to uninstall the App's own account")
+        return False
+    await _app_call(http, jwt, "DELETE", f"/app/installations/{installation.id}", 204)
+    return True
 
 
 def _within(granted: object, asked: Mapping[str, str]) -> bool:
