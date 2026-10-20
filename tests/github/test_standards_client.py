@@ -225,12 +225,22 @@ async def test_tracking_issue_skips_pull_requests(http: FakeHttp, client: Standa
             {"number": 7, "state": "closed", "body": None},
         ],
     )
-    assert await client.tracking_issue(REPO, "app-steward[bot]") == TrackingIssue(7, "closed", "")
+    assert await client.tracking_issue(REPO, "app-steward[bot]", "standards") == TrackingIssue(
+        7, "closed", ""
+    )
 
 
 async def test_no_tracking_issue(http: FakeHttp, client: StandardsClient) -> None:
     http.on("GET", f"{BASE}/issues", body=[])
-    assert await client.tracking_issue(REPO, "app-steward[bot]") is None
+    assert await client.tracking_issue(REPO, "app-steward[bot]", "standards") is None
+
+
+async def test_tracking_issue_looks_up_the_given_label(
+    http: FakeHttp, client: StandardsClient
+) -> None:
+    http.on("GET", f"{BASE}/issues", body=[])
+    await client.tracking_issue(REPO, "app-steward[bot]", "quality")
+    assert "labels=quality" in http.requests[-1].query.split("&")
 
 
 async def test_create_issue(http: FakeHttp, client: StandardsClient) -> None:

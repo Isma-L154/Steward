@@ -1,5 +1,5 @@
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 import yaml
@@ -9,7 +9,11 @@ from steward.standards.snapshot import Finding, RepoSnapshot, code_span
 _PINNED = re.compile(r"[0-9a-f]{40}|v?\d+(\.\d+)*")
 
 
-def _parsed(snapshot: RepoSnapshot) -> dict[str, dict[Any, Any]]:
+type Workflows = Mapping[str, dict[Any, Any]]
+
+
+def parse_workflows(snapshot: RepoSnapshot) -> Workflows:
+    """The workflow files that parse to a mapping; the others are reported as unreadable."""
     parsed = {}
     for name, text in snapshot.workflows.items():
         try:
@@ -40,12 +44,12 @@ def _pushes_to(trigger: Any, branch: str) -> bool:
     return branch in branches or "*" in branches or "**" in branches
 
 
-def check_ci_triggers(snapshot: RepoSnapshot) -> list[Finding]:
+def check_ci_triggers(snapshot: RepoSnapshot, workflows: Workflows) -> list[Finding]:
     unreadable = [
         Finding("workflow-unreadable", f"{code_span(name)} is not a valid workflow file")
-        for name in sorted(set(snapshot.workflows) - set(_parsed(snapshot)))
+        for name in sorted(set(snapshot.workflows) - set(workflows))
     ]
-    triggers = [_triggers(workflow) for workflow in _parsed(snapshot).values()]
+    triggers = [_triggers(workflow) for workflow in workflows.values()]
     on_pull_request = any("pull_request" in trigger for trigger in triggers)
     on_main = any(
         "push" in trigger and _pushes_to(trigger["push"], snapshot.default_branch)
@@ -81,9 +85,9 @@ def _is_pinned(reference: str) -> bool:
     return bool(separator) and _PINNED.fullmatch(ref) is not None
 
 
-def check_actions_pinned(snapshot: RepoSnapshot) -> list[Finding]:
+def check_actions_pinned(workflows: Workflows) -> list[Finding]:
     findings = []
-    for name, workflow in sorted(_parsed(snapshot).items()):
+    for name, workflow in sorted(workflows.items()):
         loose = sorted({ref for ref in _uses(workflow) if not _is_pinned(ref)})
         if loose:
             listed = ", ".join(map(code_span, loose))
@@ -93,9 +97,9 @@ def check_actions_pinned(snapshot: RepoSnapshot) -> list[Finding]:
     return findings
 
 
-def check_permissions(snapshot: RepoSnapshot) -> list[Finding]:
+def check_permissions(workflows: Workflows) -> list[Finding]:
     findings = []
-    for name, workflow in sorted(_parsed(snapshot).items()):
+    for name, workflow in sorted(workflows.items()):
         jobs = workflow.get("jobs")
         jobs = jobs if isinstance(jobs, dict) else {}
         every_job = bool(jobs) and all(
@@ -106,9 +110,9 @@ def check_permissions(snapshot: RepoSnapshot) -> list[Finding]:
     return findings
 
 
-def check_concurrency(snapshot: RepoSnapshot) -> list[Finding]:
+def check_concurrency(workflows: Workflows) -> list[Finding]:
     return [
         Finding("concurrency", f"{code_span(name)} declares no concurrency")
-        for name, workflow in sorted(_parsed(snapshot).items())
+        for name, workflow in sorted(workflows.items())
         if "concurrency" not in workflow
     ]

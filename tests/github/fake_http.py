@@ -11,6 +11,7 @@ from steward.github.http import HttpResponse
 class Request:
     method: str
     path: str
+    query: str
     headers: Mapping[str, str]
     body: str | None
 
@@ -34,5 +35,5 @@ class FakeHttp:
         parsed = urlparse(url)
         assert parsed.scheme == "https"
         assert parsed.netloc == "api.github.com"
-        self.requests.append(Request(method, parsed.path, dict(headers), body))
+        self.requests.append(Request(method, parsed.path, parsed.query, dict(headers), body))
         return self.routes.get((method, parsed.path), HttpResponse(599, "no route"))

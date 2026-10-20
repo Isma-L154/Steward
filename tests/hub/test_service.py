@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from steward.github.http import GitHubError
-from steward.hub.service import HEALTH_TTL, HubService
+from steward.hub.service import HEALTH_TTL, SCHEMA_VERSION, HubService
 from tests.hub.fakes import Clock, CountingSource, FakeHubStore
 
 T0 = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)
@@ -46,7 +46,8 @@ async def test_concurrent_health_calls_refresh_once() -> None:
 
 
 async def test_future_stamped_cache_is_stale() -> None:
-    store = FakeHubStore({"health": {"fetched_at": "2026-10-19T13:00:00Z", "body": {"old": 1}}})
+    future = {"schema": SCHEMA_VERSION, "fetched_at": "2026-10-19T13:00:00Z", "body": {"old": 1}}
+    store = FakeHubStore({"health": future})
     source = CountingSource()
     body = await _service(source, store).health()
     assert source.calls == 1
@@ -71,10 +72,10 @@ async def test_report_built_once_when_none_stored() -> None:
 
 async def test_build_report_stores_only_on_success() -> None:
     previous = {"generated_at": "2026-10-12T06:03:00Z", "major_ready": []}
-    store = FakeHubStore({"report": copy.deepcopy(previous)})
+    store = FakeHubStore({"report": {"schema": SCHEMA_VERSION, "body": copy.deepcopy(previous)}})
     with pytest.raises(GitHubError):
         await _service(CountingSource(fail=True), store).build_report()
-    assert store.values["report"] == previous
+    assert store.values["report"]["body"] == previous
     assert await _service(CountingSource(fail=True), store).report() == previous
 
 
@@ -84,3 +85,41 @@ async def test_build_report_also_refreshes_health() -> None:
     await service.build_report()
     await service.health()
     assert source.calls == 1
+
+
+@pytest.mark.parametrize("schema", [None, SCHEMA_VERSION - 1, SCHEMA_VERSION + 1, "1"])
+async def test_fresh_health_of_another_schema_is_refreshed(schema: object) -> None:
+    stored: dict[str, object] = {"fetched_at": "2026-10-19T11:58:00Z", "body": {"old": 1}}
+    if schema is not None:
+        stored["schema"] = schema
+    store = FakeHubStore({"health": stored})
+    source = CountingSource()
+    body = await _service(source, store).health()
+    assert source.calls == 1
+    assert "old" not in body
+    assert store.values["health"]["schema"] == SCHEMA_VERSION
+
+
+async def test_fresh_health_of_this_schema_is_served() -> None:
+    stored = {"schema": SCHEMA_VERSION, "fetched_at": "2026-10-19T11:58:00Z", "body": {"old": 1}}
+    source = CountingSource()
+    assert await _service(source, FakeHubStore({"health": stored})).health() == {"old": 1}
+    assert source.calls == 0
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        {"generated_at": "2026-10-12T06:03:00Z", "major_ready": []},
+        {"schema": SCHEMA_VERSION - 1, "body": {"generated_at": "2026-10-12T06:03:00Z"}},
+    ],
+)
+async def test_report_of_another_schema_is_rebuilt_once(stored: dict[str, object]) -> None:
+    store = FakeHubStore({"report": stored})
+    source = CountingSource()
+    service = _service(source, store)
+    first = await service.report()
+    assert first["generated_at"] == "2026-10-19T12:00:00Z"
+    assert await service.report() == first
+    assert source.calls == 1
+    assert store.values["report"] == {"schema": SCHEMA_VERSION, "body": first}

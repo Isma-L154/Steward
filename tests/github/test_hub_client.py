@@ -66,7 +66,7 @@ def _installed(*names: str, archived: bool = False, topics: tuple[str, ...] = ()
     return {"total_count": len(repositories), "repositories": repositories}
 
 
-def _client(http: FakeHttp, rsa_key: RSAPrivateKey) -> HubClient:
+def _client(http: FakeHttp, rsa_key: RSAPrivateKey, label: str = "standards") -> HubClient:
     http.on(
         "POST",
         ACCESS_TOKENS_PATH,
@@ -78,7 +78,7 @@ def _client(http: FakeHttp, rsa_key: RSAPrivateKey) -> HubClient:
         },
     )
     tokens = read_only_tokens(http, "123", CryptographySigner(rsa_key), lambda: 0.0)
-    return HubClient(GitHubApi(http, tokens, 42))
+    return HubClient(GitHubApi(http, tokens, 42), label)
 
 
 def test_query_aliases_and_variables() -> None:
@@ -90,7 +90,8 @@ def test_query_aliases_and_variables() -> None:
     assert "r0: repository(owner: $o0, name: $n0)" in query
     assert "r1: repository(owner: $o1, name: $n1)" in query
     assert 'environments: ["production"]' in query
-    assert 'labels: ["standards"]' in query
+    assert "$label: String!" in query
+    assert "labels: [$label]" in query
     assert re.search(r"pullRequests\([^)]*\)\s*\{\s*totalCount", query)
     assert re.search(r"vulnerabilityAlerts\([^)]*\)\s*\{\s*totalCount", query)
     assert "r2:" not in query
@@ -126,6 +127,7 @@ async def test_refresh_makes_three_calls_per_installation(rsa_key: RSAPrivateKey
     ]
     assert http.requests[0].json() == {"permissions": dict(READ_ONLY_PERMISSIONS)}
     variables = http.requests[2].json()["variables"]
+    assert variables["label"] == "standards"
     assert variables["o0"] == "o"
     assert variables["n29"] == "r29"
 
@@ -166,7 +168,7 @@ async def test_unsafe_repo_names_are_dropped_before_the_query(rsa_key: RSAPrivat
     http.on("POST", "/graphql", body={"data": {"r0": _block()}})
     repos = await client.repos()
     assert [repo.repo for repo in repos] == [RepoRef("o", "good")]
-    assert http.requests[-1].json()["variables"] == {"o0": "o", "n0": "good"}
+    assert http.requests[-1].json()["variables"] == {"label": "standards", "o0": "o", "n0": "good"}
 
 
 async def test_null_repository_reads_unknown_others_unaffected(rsa_key: RSAPrivateKey) -> None:
@@ -247,3 +249,12 @@ async def test_account_repos_concatenates_installations() -> None:
 
     repos = await account_repos([1, 2], _Client)  # type: ignore[arg-type]
     assert [repo.repo.name for repo in repos] == ["i1", "i2"]
+
+
+async def test_standards_issues_are_read_by_the_given_label(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    client = _client(http, rsa_key, "quality")
+    http.on("GET", "/installation/repositories", body=_installed("a"))
+    http.on("POST", "/graphql", body={"data": {"r0": _block()}})
+    await client.repos()
+    assert http.requests[-1].json()["variables"]["label"] == "quality"
