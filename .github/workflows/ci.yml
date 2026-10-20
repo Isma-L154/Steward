@@ -63,7 +63,8 @@ jobs:
       - name: Bundle the Worker
         run: uv run pywrangler deploy --dry-run --outdir .wrangler/dry-run
       - name: Start the dev server
-        uses: ./.github/actions/start-dev-server
+        # The self-repository form is pinned to this commit; the rule predates it.
+        uses: $/.github/actions/start-dev-server # nosemgrep: yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
       - name: Integration tests
         run: uv run pytest -m integration
         env:
