@@ -22,9 +22,11 @@ class PullRequestToEvaluate:
 
 
 @dataclass(frozen=True)
-class RepoToAudit:
+class PushToDefault:
     installation_id: int
     repo: RepoRef
+    # Standards are the owner's rules: other allowed accounts get merges only.
+    audit: bool
 
 
 # GitHub payloads carry hundreds of fields: only the ones used are declared, strictly typed.
@@ -118,7 +120,7 @@ def pull_requests_to_evaluate(
     ]
 
 
-def repos_to_audit(event: str, body: str, accounts: Accounts) -> list[RepoToAudit]:
+def pushes_to_default(event: str, body: str, accounts: Accounts) -> list[PushToDefault]:
     """The repository whose default branch just moved, or none for any other event."""
     if event != "push":
         return []
@@ -133,7 +135,12 @@ def repos_to_audit(event: str, body: str, accounts: Accounts) -> list[RepoToAudi
         return []
     if not accounts.may_act(repository.owner.login):
         return []
-    return [RepoToAudit(parsed.installation.id, RepoRef(repository.owner.login, repository.name))]
+    owner = repository.owner.login
+    return [
+        PushToDefault(
+            parsed.installation.id, RepoRef(owner, repository.name), accounts.is_owner(owner)
+        )
+    ]
 
 
 def installation_to_remove(event: str, body: str, accounts: Accounts) -> Installation | None:

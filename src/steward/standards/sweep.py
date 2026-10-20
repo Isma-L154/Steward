@@ -13,7 +13,8 @@ async def sweep(
 ) -> int:
     audited = 0
     for installation in installations:
-        if not accounts.may_act(installation.account):
+        # The sweep only audits, and standards are the owner's rules.
+        if not accounts.is_owner(installation.account):
             continue
         for installed in await repositories(installation.id):
             if not is_managed(installed.archived, installed.topics):
