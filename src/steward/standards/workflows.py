@@ -74,7 +74,8 @@ def _uses(workflow: dict[Any, Any]) -> Iterator[str]:
 
 
 def _is_pinned(reference: str) -> bool:
-    if reference.startswith(("./", "docker://")):
+    # `$/` is GitHub's self-repository form: it resolves at the workflow's own commit.
+    if reference.startswith(("./", "$/", "docker://")):
         return True
     _, separator, ref = reference.partition("@")
     return bool(separator) and _PINNED.fullmatch(ref) is not None

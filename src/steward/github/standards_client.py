@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any
@@ -6,7 +5,7 @@ from urllib.parse import quote
 
 from steward.github.api import GitHubApi
 from steward.github.client import GitHubClient
-from steward.github.models import RepoRef
+from steward.github.models import RepoRef, TrackingIssue
 from steward.standards.snapshot import CommitInfo, MergedPr, RepoSnapshot
 
 # One query reads everything the checks need except the tree and the branch rules, so an
@@ -47,20 +46,6 @@ query($owner: String!, $name: String!, $since: GitTimestamp!) {
 }
 """
 _WORKFLOW_SUFFIXES = (".yml", ".yaml")
-
-
-@dataclass(frozen=True)
-class InstalledRepo:
-    repo: RepoRef
-    archived: bool
-    topics: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class TrackingIssue:
-    number: int
-    state: str
-    body: str
 
 
 def _text(blob: Any) -> str | None:
@@ -128,18 +113,6 @@ class StandardsClient:
                 and datetime.fromisoformat(node["mergedAt"]) >= since
             ],
         )
-
-    async def installed_repositories(self) -> list[InstalledRepo]:
-        # One page: the account has far fewer than 100 repositories.
-        data = await self._api.get("/installation/repositories?per_page=100")
-        return [
-            InstalledRepo(
-                RepoRef(item["owner"]["login"], item["name"]),
-                archived=bool(item.get("archived")),
-                topics=tuple(item.get("topics") or ()),
-            )
-            for item in data["repositories"]
-        ]
 
     async def tracking_issue(self, repo: RepoRef, creator: str) -> TrackingIssue | None:
         issues = await self._api.get(

@@ -3,7 +3,7 @@ import re
 from steward.github.models import RepoRef
 from steward.standards.report import ISSUE_LABEL, ISSUE_TITLE, render_body
 from steward.standards.rules import RULES
-from steward.standards.snapshot import Finding, code_span
+from steward.standards.snapshot import WINDOW_DAYS, Finding, code_span
 
 REPO = RepoRef("Isma-L154", "example")
 
@@ -46,3 +46,7 @@ def test_body_never_mentions_anyone() -> None:
 
 def test_empty_findings_say_all_rules_pass() -> None:
     assert "All rules pass" in render_body(REPO, [])
+
+
+def test_footer_states_the_audit_window() -> None:
+    assert f"over the last {WINDOW_DAYS} days" in render_body(REPO, [])

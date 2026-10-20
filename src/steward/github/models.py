@@ -2,6 +2,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
 
+DEPENDABOT_LOGIN = "dependabot[bot]"
+
+
+def graphql_login(rest_login: str) -> str:
+    """GraphQL names every bot by its bare login, without the `[bot]` suffix REST uses."""
+    return rest_login.removesuffix("[bot]")
+
 
 @dataclass(frozen=True)
 class RepoRef:
@@ -11,6 +18,20 @@ class RepoRef:
     @property
     def full_name(self) -> str:
         return f"{self.owner}/{self.name}"
+
+
+@dataclass(frozen=True)
+class InstalledRepo:
+    repo: RepoRef
+    archived: bool
+    topics: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TrackingIssue:
+    number: int
+    state: str
+    body: str
 
 
 class BranchUpdate(StrEnum):

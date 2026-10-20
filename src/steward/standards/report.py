@@ -3,14 +3,14 @@ from itertools import groupby
 
 from steward.github.models import RepoRef
 from steward.standards.rules import RULES
-from steward.standards.snapshot import Finding
+from steward.standards.snapshot import WINDOW_DAYS, Finding
 
 ISSUE_TITLE = "Repository standards"
 ISSUE_LABEL = "standards"
 _TITLES = {rule.id: rule.title for rule in RULES}
 _FOOTER = (
     "Kept up to date by Steward on every push to the default branch and every Monday. "
-    "Commits and pull requests are checked over the last 30 days."
+    f"Commits and pull requests are checked over the last {WINDOW_DAYS} days."
 )
 
 

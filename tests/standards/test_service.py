@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from steward.github.standards_client import TrackingIssue
+from steward.github.models import TrackingIssue
 from steward.standards.report import render_body
 from steward.standards.service import StandardsService
 from tests.standards.builders import OWNER_EMAIL, snapshot

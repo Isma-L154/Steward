@@ -2,8 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from steward.github.models import RepoRef
-from steward.github.standards_client import TrackingIssue
+from steward.github.models import RepoRef, TrackingIssue
 from steward.standards.snapshot import RepoSnapshot
 
 

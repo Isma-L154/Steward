@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from steward.hub.snapshot import DEPENDABOT_LOGIN, HubRepo, OpenIssue
+from steward.hub.snapshot import DEPENDABOT_AUTHOR, HubRepo, OpenIssue
 from steward.hub.text import iso, issue_url, repo_url, unchecked_findings
 
 _CI = {
@@ -44,7 +44,7 @@ def _pull_requests(repo: HubRepo) -> dict[str, Any] | None:
     dependabot = (
         None
         if repo.pulls is None
-        else sum(1 for pull in repo.pulls if pull.author == DEPENDABOT_LOGIN)
+        else sum(1 for pull in repo.pulls if pull.author == DEPENDABOT_AUTHOR)
     )
     return {"open": repo.pulls_open, "dependabot": dependabot}
 

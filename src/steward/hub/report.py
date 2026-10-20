@@ -4,7 +4,7 @@ from typing import Any
 
 from steward.dependabot.decision import MAJOR_BROKEN, MAJOR_READY, UPDATE_BLOCKED, UPDATE_BROKEN
 from steward.hub.health import own_standards_issue
-from steward.hub.snapshot import DEPENDABOT_LOGIN, HubRepo
+from steward.hub.snapshot import DEPENDABOT_AUTHOR, HubRepo
 from steward.hub.text import clean_title, iso, issue_url, pull_url, unchecked_findings
 
 _LISTS = {
@@ -25,7 +25,7 @@ def report(repos: Sequence[HubRepo], now: datetime, app_login: str) -> dict[str,
         if repo.pulls is None or repo.standards_issues is None:
             body["unknown"].append(repo.repo.full_name)
             continue
-        dependabot = [pull for pull in repo.pulls if pull.author == DEPENDABOT_LOGIN]
+        dependabot = [pull for pull in repo.pulls if pull.author == DEPENDABOT_AUTHOR]
         for pull in sorted(dependabot, key=lambda pull: pull.number):
             for key, label in _LISTS.items():
                 if label in pull.labels:

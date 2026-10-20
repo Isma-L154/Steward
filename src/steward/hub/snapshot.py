@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from steward.github.models import RepoRef
+from steward.github.models import DEPENDABOT_LOGIN, RepoRef, graphql_login
 
-# GraphQL names the `dependabot[bot]` app by its bare login.
-DEPENDABOT_LOGIN = "dependabot"
+# How the hub's GraphQL answers name Dependabot as a pull request author.
+DEPENDABOT_AUTHOR = graphql_login(DEPENDABOT_LOGIN)
 
 
 @dataclass(frozen=True)

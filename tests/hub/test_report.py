@@ -5,7 +5,7 @@ import pytest
 from steward.dependabot.decision import MAJOR_BROKEN, MAJOR_READY, UPDATE_BLOCKED, UPDATE_BROKEN
 from steward.github.models import RepoRef
 from steward.hub.report import report
-from steward.hub.snapshot import DEPENDABOT_LOGIN, HubRepo, OpenIssue, OpenPull
+from steward.hub.snapshot import DEPENDABOT_AUTHOR, HubRepo, OpenIssue, OpenPull
 
 NOW = datetime(2026, 10, 19, 6, 3, 12, tzinfo=UTC)
 REPO = RepoRef("Isma-L154", "hub")
@@ -17,7 +17,9 @@ def _repo(*pulls: OpenPull, issues: tuple[OpenIssue, ...] = (), repo: RepoRef = 
     return HubRepo(repo, pulls_open=len(pulls), pulls=pulls, standards_issues=issues)
 
 
-def _pull(number: int, label: str, author: str = DEPENDABOT_LOGIN, title: str = "Bump") -> OpenPull:
+def _pull(
+    number: int, label: str, author: str = DEPENDABOT_AUTHOR, title: str = "Bump"
+) -> OpenPull:
     return OpenPull(number, title, author, frozenset({label}))
 
 
