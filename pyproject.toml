@@ -71,5 +71,11 @@ ignore_missing_imports = true
 
 # These subclass the runtime's DurableObject and WorkerEntrypoint, which are opaque above.
 [[tool.mypy.overrides]]
-module = ["steward.worker.entry", "steward.worker.merge_queue", "steward.worker.standards_audit"]
+module = [
+    "steward.worker.entry",
+    "steward.worker.hub_api",
+    "steward.worker.hub_data",
+    "steward.worker.merge_queue",
+    "steward.worker.standards_audit",
+]
 disallow_subclassing_any = false

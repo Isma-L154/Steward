@@ -3,6 +3,8 @@ main = "src/entry.py"
 compatibility_date = "2026-09-18"
 compatibility_flags = ["python_workers"]
 workers_dev = false
+# Preview URLs would serve the default entrypoint on another hostname.
+preview_urls = false
 routes = [{ pattern = "steward.cloudils.com", custom_domain = true }]
 
 [vars]
@@ -21,6 +23,10 @@ class_name = "MergeQueue"
 name = "STANDARDS_AUDIT"
 class_name = "StandardsAudit"
 
+[[durable_objects.bindings]]
+name = "HUB_DATA"
+class_name = "HubData"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["MergeQueue"]
@@ -29,10 +35,20 @@ new_sqlite_classes = ["MergeQueue"]
 tag = "v2"
 new_sqlite_classes = ["StandardsAudit"]
 
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["HubData"]
+
 [[ratelimits]]
 name = "WEBHOOK_LIMIT"
 namespace_id = "1001"
 simple = { limit = 120, period = 60 }
+
+# Calls from the hub's service binding, keyed by the caller.
+[[ratelimits]]
+name = "HUB_LIMIT"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }
 
 [observability]
 enabled = true

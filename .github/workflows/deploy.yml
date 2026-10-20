@@ -49,3 +49,7 @@ jobs:
           done
           echo "production still serves version $version, expected $GITHUB_SHA"
           exit 1
+      - name: Hub API is not public
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' https://steward.cloudils.com/v1/health)
+          [ "$status" = "404" ] || { echo "/v1/health answered $status on the public domain"; exit 1; }

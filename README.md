@@ -31,6 +31,7 @@
 - **Fails closed** — no auto-merge in a repository whose `main` has no required status checks, when a required check never reported, when the update type is unclear, or when anyone but Dependabot (or Steward's own branch update) pushed a commit to the branch.
 - **Checks every repository against one set of rules** — on every push to the default branch and every Monday, it checks CI triggers, pinned actions, workflow permissions and concurrency, Dependabot coverage, required checks, direct pushes, issue references, commit identity, AI attribution, the README standard and the `AGENTS.md` security baseline.
 - **One issue per repository, never noise** — what fails is listed in a single "Repository standards" issue, updated in place, reopened if something breaks again and closed when everything passes.
+- **Feeds the hub** — the hub (`hub.cloudils.com`) reads each repository's CI, latest deploy, open pull requests, issues, security alerts and standards state, plus a weekly report of what waits for you, through a service binding only; nothing of it is public. The contract is [`docs/hub-api.md`](docs/hub-api.md).
 - **Leaves alone what you exclude** — archived repositories and any repository with the `steward-ignore` topic are skipped by everything Steward does.
 
 The design is in [`docs/superpowers/specs/2026-10-18-steward-design.md`](docs/superpowers/specs/2026-10-18-steward-design.md).
@@ -46,6 +47,11 @@ flowchart LR
     Q -- "App JWT → installation token" --> API["🔌 GitHub REST + GraphQL"]
     A --> API
     Q --> S[("🗄️ Durable Object storage<br/>branch updates")]
+    H["🧭 Hub Worker"] -- "service binding<br/>props caller=hub" --> HA["🚪 HubApi<br/>/v1/health · /v1/report"]
+    HA --> HD["📊 HubData<br/>Durable Object"]
+    C -- "weekly report" --> HD
+    HD -- "read-only installation token" --> API
+    HD --> S2[("🗄️ Durable Object storage<br/>health cache · report")]
 ```
 
 GitHub sends a `workflow_run` webhook when a CI run finishes. The Worker verifies its signature, keeps only pull requests on `dependabot/` branches, and hands each one to the `MergeQueue` Durable Object for its repository. That object holds a lock, so two updates are never merged onto the same `main` without CI running in between.
@@ -54,7 +60,9 @@ The queue reads the pull request, its commits, the required checks (rulesets and
 
 For the rules, a push to a repository's default branch (or the weekly cron, which lists every installed repository) asks the `StandardsAudit` Durable Object for that repository. One GraphQL query plus three REST calls build a snapshot (workflows, Dependabot config, README, `AGENTS.md`, the file tree, required checks, the last 30 days of commits and merged pull requests); pure checks in `src/steward/standards/` turn it into findings. One audit per Durable Object call keeps each audit inside the free plan's 50 subrequests per invocation.
 
-The App JWT is signed with the runtime's native WebCrypto, not with a Python RSA library: RSA compiled to WebAssembly costs more CPU time than a request may use. GitHub's PKCS#1 key is wrapped as PKCS#8 for it (`src/steward/github/keys.py`), and the main Worker never touches the key; only the queue signs, about once an hour per repository.
+The hub calls the `HubApi` entrypoint, which the public domain never reaches, and it forwards to the single `HubData` Durable Object. That object reads every managed repository in one GraphQL query with an installation token narrowed to read permissions, keeps the result for 5 minutes (one refresh at a time, however many calls arrive), and stores the weekly report the Monday cron builds after the sweep. Anything GitHub does not state plainly reads `unknown`.
+
+The App JWT is signed with the runtime's native WebCrypto, not with a Python RSA library: RSA compiled to WebAssembly costs more CPU time than a request may use. GitHub's PKCS#1 key is wrapped as PKCS#8 for it (`src/steward/github/keys.py`), and the main Worker never touches the key; only the Durable Objects sign, about once an hour each.
 
 **Stack:** Python 3.14 · Cloudflare Python Workers · Durable Objects · Cron Triggers · WebCrypto · `pydantic` · PyYAML · uv + pywrangler
 
@@ -105,7 +113,7 @@ Every push to `main` runs `deploy.yml`: the full CI, then `pywrangler deploy` wi
 First-time setup of the GitHub App (Settings → Developer settings → GitHub Apps → New):
 
 - Webhook URL `https://steward.cloudils.com/webhook` and a generated secret.
-- Repository permissions: Metadata read, Contents read and write, Pull requests read and write, Issues read and write, Checks read, Commit statuses read, Actions read, Administration read.
+- Repository permissions: Metadata read, Contents read and write, Pull requests read and write, Issues read and write, Checks read, Commit statuses read, Actions read, Administration read, Deployments read, Dependabot alerts read (the last two for the hub; without them the hub API answers 502).
 - Events: Workflow run and Push. Installable only on this account.
 - Private key: **Credentials → Key pairs** on the App's settings page; the downloaded `.pem` goes into the `PRIVATE_KEY` Worker secret (`uv run pywrangler secret put PRIVATE_KEY < <file>.pem`).
 - Install it on the repositories it should look after; it acts only where it is installed.
@@ -115,8 +123,9 @@ First-time setup of the GitHub App (Settings → Developer settings → GitHub A
 - **Secrets:** the App key, ID and webhook secret are Worker secrets only; any missing or unparseable one makes every route, `/health` included, answer 500.
 - **Webhook authentication:** `X-Hub-Signature-256` is checked with HMAC-SHA256 and a constant-time comparison over the raw body before anything is parsed; failures answer 401.
 - **Input validation:** strict pydantic models for the fields used, no coercion; bodies over 1 MiB or without a declared length answer 413, malformed ones 400.
-- **Rate limiting:** 120 webhook requests per minute per client IP.
-- **Least privilege:** installation tokens are short-lived and cached until five minutes before they expire; errors log the status and path, never a token or a payload.
+- **Rate limiting:** 120 webhook requests per minute per client IP; 60 hub API calls per minute, and GitHub is read for the hub at most once every 5 minutes.
+- **Hub API:** reachable only through a service binding whose `props.caller` is `hub` (the public domain answers 404, checked after every deploy); `GET` on two exact paths only; responses carry a fixed field list, links built by Steward to `https://github.com/` only, and titles stripped of control characters.
+- **Least privilege:** the hub API reads GitHub with a token limited to read permissions; installation tokens are short-lived and cached until five minutes before they expire; errors log the status and path, never a token or a payload.
 - **Headers:** every response carries `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'`, HSTS, `nosniff`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
 - CORS and Row Level Security do not apply: no browser calls this Worker and there is no multi-user data (see `AGENTS.md`).
 

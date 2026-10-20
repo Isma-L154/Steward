@@ -1,11 +1,13 @@
 import base64
 import json
 
+import pytest
 from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.hashes import SHA256
 
 from steward.github.app_auth import InstallationTokens, app_jwt, bot_login, installation_ids
+from steward.github.http import GitHubError
 from tests.github.fake_http import FakeHttp
 from tests.github.signer import CryptographySigner
 
@@ -92,3 +94,63 @@ async def test_installation_ids_lists_the_apps_installations(rsa_key: RSAPrivate
         7,
     ]
     assert http.requests[0].headers["Authorization"].startswith("Bearer ")
+
+
+async def test_scoped_token_request_carries_exactly_the_permissions(
+    rsa_key: RSAPrivateKey,
+) -> None:
+    http = FakeHttp()
+    http.on(
+        "POST",
+        ROUTE,
+        201,
+        {
+            "token": "ghs_ro",
+            "expires_at": "2026-10-18T13:00:00Z",
+            "permissions": {"metadata": "read"},
+        },
+    )
+    clock = _Clock(1_792_324_800.0)
+    tokens = InstallationTokens(
+        http, "123", CryptographySigner(rsa_key), clock, permissions={"metadata": "read"}
+    )
+    assert await tokens.token(42) == "ghs_ro"
+    assert http.requests[0].json() == {"permissions": {"metadata": "read"}}
+
+
+async def test_unscoped_token_request_has_no_body(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    http.on("POST", ROUTE, 201, {"token": "ghs_one", "expires_at": "2026-10-18T13:00:00Z"})
+    await _tokens(http, _Clock(1_792_324_800.0), rsa_key).token(42)
+    assert http.requests[0].body is None
+
+
+async def test_scoped_token_wider_than_asked_is_refused(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    http.on(
+        "POST",
+        ROUTE,
+        201,
+        {
+            "token": "ghs_full",
+            "expires_at": "2026-10-18T13:00:00Z",
+            "permissions": {"metadata": "read", "contents": "write"},
+        },
+    )
+    tokens = InstallationTokens(
+        http, "123", CryptographySigner(rsa_key), _Clock(1_792_324_800.0), {"metadata": "read"}
+    )
+    with pytest.raises(GitHubError):
+        await tokens.token(42)
+
+
+async def test_scoped_token_without_permissions_in_answer_is_refused(
+    rsa_key: RSAPrivateKey,
+) -> None:
+    http = FakeHttp()
+    http.on("POST", ROUTE, 201, {"token": "ghs_x", "expires_at": "2026-10-18T13:00:00Z"})
+    tokens = InstallationTokens(
+        http, "123", CryptographySigner(rsa_key), _Clock(1_792_324_800.0), {"metadata": "read"}
+    )
+    with pytest.raises(GitHubError):
+        await tokens.token(42)

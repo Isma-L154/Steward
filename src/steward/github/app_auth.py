@@ -1,6 +1,6 @@
 import base64
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Protocol
 
@@ -53,11 +53,26 @@ async def installation_ids(http: HttpClient, app_id: str, signer: Signer, now: i
     return [int(item["id"]) for item in json.loads(response.body)]
 
 
+def _within(granted: object, asked: Mapping[str, str]) -> bool:
+    return isinstance(granted, dict) and all(
+        asked.get(key) == level for key, level in granted.items()
+    )
+
+
 class InstallationTokens:
     def __init__(
-        self, http: HttpClient, app_id: str, signer: Signer, clock: Callable[[], float]
+        self,
+        http: HttpClient,
+        app_id: str,
+        signer: Signer,
+        clock: Callable[[], float],
+        permissions: Mapping[str, str] | None = None,
     ) -> None:
         self._http = http
+        # A token narrowed to these permissions; each instance caches its own tokens, so a
+        # narrowed instance never hands out the App's full token.
+        self._permissions = None if permissions is None else dict(permissions)
+        self._body = None if permissions is None else json.dumps({"permissions": dict(permissions)})
         self._app_id = app_id
         self._signer = signer
         self._clock = clock
@@ -70,10 +85,15 @@ class InstallationTokens:
         path = f"/app/installations/{installation_id}/access_tokens"
         jwt = await app_jwt(self._app_id, self._signer, int(self._clock()))
         headers = {**API_HEADERS, "Authorization": f"Bearer {jwt}"}
-        response = await self._http.request("POST", f"{API}{path}", headers)
+        response = await self._http.request("POST", f"{API}{path}", headers, self._body)
         if response.status != 201:  # noqa: PLR2004 - GitHub's "Created"
             raise GitHubError(response.status, path)
         body = json.loads(response.body)
+        # GitHub states the token's permissions; one wider than asked must never be used.
+        if self._permissions is not None and not _within(
+            body.get("permissions"), self._permissions
+        ):
+            raise GitHubError(response.status, path)
         expires_at = datetime.fromisoformat(body["expires_at"]).timestamp()
         self._cache[installation_id] = (body["token"], expires_at)
         return str(body["token"])

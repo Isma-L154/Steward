@@ -7,7 +7,7 @@ A GitHub App for the owner's own repositories (account `Isma-L154`). It merges D
 - **Language:** Python 3.14 (Pyodide inside workerd)
 - **Framework:** none; Cloudflare Python Workers (`workers` SDK: `WorkerEntrypoint`, `DurableObject`)
 - **Package manager:** uv (`uv.lock`) with `pywrangler`; npm only for `wrangler` (`package-lock.json`)
-- **Database:** none; Durable Object storage holds small per-repository state (rebase requests)
+- **Database:** none; Durable Object storage holds small state (rebase requests per repository, the hub's health cache and weekly report)
 - **Deployment target:** Cloudflare Workers, custom domain `steward.cloudils.com`, deployed by `.github/workflows/deploy.yml` from `main`
 - **Key libraries:** `pydantic` (webhook payload validation), `PyYAML` (workflow and Dependabot files); the runtime's WebCrypto (`crypto.subtle`) signs the RS256 App JWT; dev: pytest, hypothesis, httpx, ruff, mypy, `cryptography` (reference signatures in tests)
 
@@ -23,8 +23,8 @@ A GitHub App for the owner's own repositories (account `Isma-L154`). It merges D
 
 ## Architecture & Conventions
 
-- `src/steward/` is a pure Python core with no Workers imports, tested on CPython: `webhooks/` (signature, payload parsing), `github/` (models, App auth, the shared `GitHubApi` transport with GraphQL, the Dependabot and standards clients), `dependabot/` (update type, CI verdict, decision table, service), `standards/` (repository snapshot, one module per group of checks, rule registry, issue body, service, weekly sweep), `repos.py` (which repositories are managed: not archived, no `steward-ignore` topic).
-- `src/steward/worker/` holds the thin runtime adapters: `entry.py` (`Default`: `/health`, `/webhook`), `merge_queue.py` (one `MergeQueue` Durable Object per repository, serialized with an `asyncio.Lock`), `standards_audit.py` (one `StandardsAudit` call audits one repository, so each audit has its own 50-subrequest budget on the free plan), `weekly_sweep.py` (the cron's fan-out), `fetch_http.py`, `branch_update_memory.py`. `src/entry.py` is the shim Wrangler loads.
+- `src/steward/` is a pure Python core with no Workers imports, tested on CPython: `webhooks/` (signature, payload parsing), `github/` (models, App auth, the shared `GitHubApi` transport with GraphQL, the Dependabot and standards clients), `dependabot/` (update type, CI verdict, decision table, service), `standards/` (repository snapshot, one module per group of checks, rule registry, issue body, service, weekly sweep), `hub/` (the hub API: snapshot types, safe text and URLs, health and report projections, request checks, the cached service; `github/hub_client.py` reads it in one GraphQL query with a read-only token), `repos.py` (which repositories are managed: not archived, no `steward-ignore` topic).
+- `src/steward/worker/` holds the thin runtime adapters: `entry.py` (`Default`: `/health`, `/webhook`), `merge_queue.py` (one `MergeQueue` Durable Object per repository, serialized with an `asyncio.Lock`), `standards_audit.py` (one `StandardsAudit` call audits one repository, so each audit has its own 50-subrequest budget on the free plan), `weekly_sweep.py` (the cron's fan-out), `hub_api.py` (`HubApi`, the entrypoint only the hub's service binding reaches), `hub_data.py` (one `HubData` Durable Object: the 5-minute health cache and the weekly report), `fetch_http.py`, `branch_update_memory.py`. `src/entry.py` is the shim Wrangler loads.
 - Services depend on small `Protocol` ports (`dependabot/ports.py`, `github/http.py`); tests use in-memory fakes (`tests/dependabot/fakes.py`, `tests/github/fake_http.py`), never network mocks.
 - Decisions are pure functions over frozen dataclasses (`decide(Facts) -> Decision`); side effects live in the service.
 - Anything unclear fails closed: unknown update type counts as major, a missing required check keeps CI pending, no required checks means no auto-merge.
@@ -110,10 +110,10 @@ Security tooling is mandatory for this project, not optional nice-to-have. Apply
 The seven controls are defined in global rule 10. In this project:
 
 1. **Secrets in environment variables — implemented.** `APP_ID`, `PRIVATE_KEY` and `WEBHOOK_SECRET` are Worker secrets; `.dev.vars.example` lists the keys without values; any missing or unparseable one makes every route, `/health` included, answer 500.
-2. **CORS — N/A.** No browser ever calls this Worker: the only callers are GitHub's webhook deliveries and, later, the hub through a service binding. No CORS headers are sent.
-3. **Backend validation — implemented.** The webhook signature is checked first; then the body is validated by strict pydantic models that declare only the fields used (no coercion); bodies over 1 MiB or without a declared length are rejected with 413.
+2. **CORS — N/A.** No browser ever calls this Worker: the only callers are GitHub's webhook deliveries and the hub through a service binding (`HubApi`). No CORS headers are sent.
+3. **Backend validation — implemented.** The webhook signature is checked first; then the body is validated by strict pydantic models that declare only the fields used (no coercion); bodies over 1 MiB or without a declared length are rejected with 413. The hub API accepts only `GET` on its two exact paths, with no query string and no body, from a binding whose `props.caller` is `"hub"`.
 4. **Sanitize before storage — implemented.** No SQL and no file paths from input; Durable Object keys are built from integers and commit SHAs. Text derived from repositories is escaped before it goes into GitHub markdown (standards module).
-5. **Rate limiting — implemented.** The `WEBHOOK_LIMIT` binding allows 120 webhook requests per minute per client IP; GitHub API errors are not retried in a loop (the next webhook re-evaluates).
+5. **Rate limiting — implemented.** The `WEBHOOK_LIMIT` binding allows 120 webhook requests per minute per client IP; `HUB_LIMIT` allows 60 hub API calls per minute per caller, and the hub's health is read from GitHub at most once every 5 minutes; GitHub API errors are not retried in a loop (the next webhook re-evaluates).
 6. **Row Level Security — N/A.** Single owner, no multi-user data and no database.
 7. **Content Security Policy — implemented.** No HTML is served; every response carries `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'`, HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
 

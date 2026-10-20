@@ -43,3 +43,20 @@ async def test_graphql_errors_raise(rsa_key: RSAPrivateKey) -> None:
     with pytest.raises(GitHubError) as raised:
         await api.graphql("query { x }", {})
     assert raised.value.path == "/graphql"
+
+
+async def test_graphql_partial_returns_data_despite_errors(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    api = _api(http, rsa_key)
+    http.on("POST", "/graphql", body={"data": {"r0": None}, "errors": [{"path": ["r0"]}]})
+    assert await api.graphql_partial("query { x }", {}) == {"r0": None}
+
+
+async def test_graphql_partial_without_data_raises(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    api = _api(http, rsa_key)
+    http.on("POST", "/graphql", body={"errors": [{"message": "boom"}]})
+    with pytest.raises(GitHubError) as raised:
+        await api.graphql_partial("query { x }", {})
+    assert raised.value.status == 200
+    assert raised.value.path == "/graphql"
