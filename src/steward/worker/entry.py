@@ -13,6 +13,7 @@ from steward.github.models import Installation
 from steward.webhooks.events import (
     MAX_BODY_BYTES,
     InvalidPayload,
+    delivery_installation,
     installation_to_remove,
     pull_requests_to_evaluate,
     pushes_to_default,
@@ -65,10 +66,19 @@ class Default(WorkerEntrypoint):
     async def _handle(self, config: Config, event: str, body: bytes) -> Response:
         try:
             text = body.decode("utf-8")
+        except UnicodeDecodeError:
+            return error_response("invalid_payload", HTTPStatus.BAD_REQUEST)
+        installation = delivery_installation(text)
+        if (
+            installation is not None
+            and not (await self.env.INSTALLATION_LIMIT.limit(key=str(installation))).success
+        ):
+            return error_response("rate_limited", HTTPStatus.TOO_MANY_REQUESTS)
+        try:
             removal = installation_to_remove(event, text, config.accounts)
             pull_requests = pull_requests_to_evaluate(event, text, config.accounts)
             pushes = pushes_to_default(event, text, config.accounts)
-        except InvalidPayload, UnicodeDecodeError:
+        except InvalidPayload:
             return error_response("invalid_payload", HTTPStatus.BAD_REQUEST)
         if removal is not None:
             return await self._uninstall(config, removal)

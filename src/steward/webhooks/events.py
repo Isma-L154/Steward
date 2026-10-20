@@ -158,3 +158,16 @@ def installation_to_remove(event: str, body: str, accounts: Accounts) -> Install
     if accounts.may_act(login):
         return None
     return Installation(parsed.installation.id, login)
+
+
+class _Delivery(_Model):
+    installation: _Installation | None = None
+
+
+def delivery_installation(body: str) -> int | None:
+    """The installation a delivery comes from, or None for one that names none (`ping`)."""
+    try:
+        installation = _Delivery.model_validate_json(body).installation
+    except ValidationError:
+        return None
+    return None if installation is None else installation.id

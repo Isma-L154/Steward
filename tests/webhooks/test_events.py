@@ -10,6 +10,7 @@ from steward.webhooks.events import (
     InvalidPayload,
     PullRequestToEvaluate,
     PushToDefault,
+    delivery_installation,
     installation_to_remove,
     pull_requests_to_evaluate,
     pushes_to_default,
@@ -198,3 +199,16 @@ def test_push_from_an_allowlisted_account_is_not_audited() -> None:
     assert pushes_to_default("push", json.dumps(payload), ACCOUNTS) == [
         PushToDefault(installation_id=42, repo=RepoRef("Wal-014", "nextsode"), audit=False)
     ]
+
+
+def test_delivery_installation_is_read_from_any_event() -> None:
+    assert delivery_installation(json.dumps(_push())) == 42
+    assert delivery_installation(json.dumps(_payload())) == 42
+    assert delivery_installation(_installation("created", "stranger")) == 9
+
+
+@pytest.mark.parametrize(
+    "body", ['{"zen": "Keep it logically awesome."}', '{"installation": null}', "[]", "not json"]
+)
+def test_delivery_without_an_installation_has_none(body: str) -> None:
+    assert delivery_installation(body) is None

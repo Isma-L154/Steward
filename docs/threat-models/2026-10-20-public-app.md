@@ -69,7 +69,7 @@ Recommendation: feasible and acceptable once threats 1 to 5 are mitigated. Until
 - [x] Account allowlist, fail-closed at every entry, with self-uninstall of other accounts (1), #50. Verified by the webhook, sweep and installation-event tests.
 - [x] Hub reads only the owner's account (2), #51. Verified by the `account_repos` filter test.
 - [x] Standards only on the owner's account (3), #52. Verified by the push and sweep tests.
-- [ ] Per-installation webhook rate limit (4). Verified by the integration test with two installations.
+- [x] Per-installation webhook rate limit (4), #53. Verified by the integration test with two installations.
 - [x] Size cap on parsed YAML (5), #54. Verified by the oversized-file test.
 - [ ] "Only select repositories" for allowlisted accounts, and `SECURITY.md` updated (6). Verified by the installation listing check before enabling.
 
