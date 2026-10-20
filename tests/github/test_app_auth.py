@@ -154,3 +154,56 @@ async def test_scoped_token_without_permissions_in_answer_is_refused(
     )
     with pytest.raises(GitHubError):
         await tokens.token(42)
+
+
+async def test_refused_token_request_carries_github_message(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    http.on(
+        "POST",
+        ROUTE,
+        422,
+        {
+            "message": "There is at least one permission requested that is not granted.",
+            "documentation_url": "https://docs.github.com/rest/apps/apps",
+        },
+    )
+    tokens = InstallationTokens(
+        http, "123", CryptographySigner(rsa_key), _Clock(1_792_324_800.0), {"metadata": "read"}
+    )
+    with pytest.raises(GitHubError) as raised:
+        await tokens.token(42)
+    assert raised.value.detail == (
+        "There is at least one permission requested that is not granted. "
+        "(https://docs.github.com/rest/apps/apps)"
+    )
+    jwt = http.requests[-1].headers["Authorization"].removeprefix("Bearer ")
+    assert jwt not in str(raised.value)
+
+
+async def test_wider_token_is_refused_with_a_reason(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    http.on(
+        "POST",
+        ROUTE,
+        201,
+        {
+            "token": "ghs_full",
+            "expires_at": "2026-10-18T13:00:00Z",
+            "permissions": {"metadata": "read", "contents": "write"},
+        },
+    )
+    tokens = InstallationTokens(
+        http, "123", CryptographySigner(rsa_key), _Clock(1_792_324_800.0), {"metadata": "read"}
+    )
+    with pytest.raises(GitHubError) as raised:
+        await tokens.token(42)
+    assert raised.value.detail == "granted permissions differ from the request"
+    assert "ghs_full" not in str(raised.value)
+
+
+async def test_refused_app_lookup_carries_github_message(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    http.on("GET", "/app", 401, {"message": "Bad credentials"})
+    with pytest.raises(GitHubError) as raised:
+        await bot_login(http, "123", CryptographySigner(rsa_key), 1_792_324_800)
+    assert raised.value.detail == "Bad credentials"

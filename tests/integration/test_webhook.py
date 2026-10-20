@@ -139,7 +139,7 @@ def test_signed_workflow_run_from_an_ignored_repository_queues_nothing() -> None
 def test_weekly_sweep_runs_without_crashing() -> None:
     response = httpx.get(
         f"{BASE_URL}/cdn-cgi/local/scheduled",
-        params={"cron": "0 6 * * 1", "format": "json"},
+        params={"cron": "0 6 * * MON", "format": "json"},
         timeout=TIMEOUT,
     )
     assert response.status_code == 200

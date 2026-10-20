@@ -12,8 +12,9 @@ routes = [{ pattern = "steward.cloudils.com", custom_domain = true }]
 OWNER_EMAIL = "ismaleonsaenz@gmail.com"
 
 [triggers]
-# Weekly standards sweep, Mondays 06:00 UTC.
-crons = ["0 6 * * 1"]
+# Weekly standards sweep, Mondays 06:00 UTC. Cloudflare numbers weekdays from 1 = Sunday, so
+# the day is named.
+crons = ["0 6 * * MON"]
 
 [[durable_objects.bindings]]
 name = "MERGE_QUEUE"

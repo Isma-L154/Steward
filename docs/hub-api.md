@@ -94,7 +94,7 @@ Every error body is exactly `{"error": "<code>"}`.
 | 405 | `method_not_allowed` | not `GET` |
 | 429 | `rate_limited` | more than 60 calls in a minute |
 | 500 | `misconfigured` | Steward is missing a secret |
-| 502 | `github_unavailable` | GitHub could not be read; nothing stale is served |
+| 502 | `github_unavailable` | GitHub could not be read, or Steward failed while answering; nothing stale is served |
 
 ## What the hub must do
 
