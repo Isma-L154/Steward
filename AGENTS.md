@@ -17,7 +17,7 @@ A GitHub App for the owner's own repositories (account `Isma-L154`). It merges D
   - Windows with the repo outside `C:`: Pyodide runs inside Node and only sees the current drive, so the uv cache and uv-managed Pythons must live on the repo's drive. In PowerShell: `$env:UV_CACHE_DIR='D:\.uv\cache'; $env:UV_PYTHON_INSTALL_DIR='D:\.uv\python'; uv run pywrangler dev`
 - Build: `uv run pywrangler deploy --dry-run --outdir .wrangler/dry-run`
 - Test (unit): `uv run pytest`
-- Test (e2e): no UI; integration tests against the dev server: `uv run pytest -m integration`
+- Test (e2e): no UI; integration tests against the dev server: `uv run pytest -m integration`. The hub API tests also need the stand-in hub, which reaches `HubApi` through real service bindings: `npx wrangler dev -c tests/integration/caller/wrangler.toml` (port 8788)
 - Lint / format: `uv run ruff check .` and `uv run ruff format --check .`
 - Type check: `uv run mypy src tests`
 

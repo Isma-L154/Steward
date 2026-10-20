@@ -1,5 +1,5 @@
 name: Start the dev server
-description: Writes a throwaway .dev.vars, runs `pywrangler dev` in the background, logging to wrangler-dev.log, and waits until /health answers.
+description: Writes a throwaway .dev.vars, runs `pywrangler dev` in the background, logging to wrangler-dev.log, and the stand-in hub caller next to it, logging to caller-dev.log, and waits until both answer.
 runs:
   using: composite
   steps:
@@ -12,9 +12,14 @@ runs:
           printf 'PRIVATE_KEY="%s"\n' "$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048)"
         } > .dev.vars
         uv run pywrangler dev --test-scheduled > wrangler-dev.log 2>&1 &
+        # Reaches HubApi through service bindings, found through the local dev registry.
+        npx wrangler dev -c tests/integration/caller/wrangler.toml > caller-dev.log 2>&1 &
         for _ in $(seq 1 60); do
-          curl -sf -o /dev/null http://localhost:8787/health && exit 0
+          if curl -sf -o /dev/null http://localhost:8787/health \
+            && [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8788/)" = 404 ]; then
+            exit 0
+          fi
           sleep 2
         done
-        cat wrangler-dev.log
+        cat wrangler-dev.log caller-dev.log
         exit 1
