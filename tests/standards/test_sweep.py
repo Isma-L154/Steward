@@ -56,3 +56,11 @@ async def test_installations_of_unlisted_accounts_are_not_listed_or_audited() ->
 
     assert await sweep([Installation(2, "stranger")], ACCOUNTS, repositories, audit) == 0
     assert listed == []
+
+
+async def test_allowlisted_accounts_are_not_audited() -> None:
+    async def audit(installation: int, repo: RepoRef) -> None:
+        raise AssertionError(repo)
+
+    allowed = Accounts.parse("o", "Wal-014")
+    assert await sweep([Installation(2, "Wal-014")], allowed, _repositories, audit) == 0
