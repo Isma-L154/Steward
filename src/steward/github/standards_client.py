@@ -40,6 +40,8 @@ query($owner: String!, $name: String!, $since: GitTimestamp!) {
         number title body headRefName baseRefName mergedAt
         author { login }
         closingIssuesReferences { totalCount }
+        mergeCommit { oid }
+        commits(first: 100) { nodes { commit { oid } } }
       }
     }
   }
@@ -52,7 +54,14 @@ def _text(blob: Any) -> str | None:
     return blob.get("text") if isinstance(blob, dict) else None
 
 
-def _commit(node: dict[str, Any]) -> CommitInfo:
+def _pr_commits(node: dict[str, Any]) -> set[str]:
+    oids = {item["commit"]["oid"] for item in node["commits"]["nodes"]}
+    if node["mergeCommit"] is not None:
+        oids.add(node["mergeCommit"]["oid"])
+    return oids
+
+
+def _commit(node: dict[str, Any], merged: frozenset[str]) -> CommitInfo:
     user = node["author"].get("user")
     return CommitInfo(
         oid=node["oid"],
@@ -60,7 +69,10 @@ def _commit(node: dict[str, Any]) -> CommitInfo:
         author_email=node["author"].get("email") or "",
         author_login=user["login"] if user else None,
         is_root=node["parents"]["totalCount"] == 0,
-        from_merged_pr=any(pr["merged"] for pr in node["associatedPullRequests"]["nodes"]),
+        # GitHub links a commit to its pull request a little after the push, so a commit of a
+        # pull request merged moments ago is recognized from the pull request's side as well.
+        from_merged_pr=node["oid"] in merged
+        or any(pr["merged"] for pr in node["associatedPullRequests"]["nodes"]),
     )
 
 
@@ -87,6 +99,10 @@ class StandardsClient:
         if branch_ref is None:
             return None
         branch = branch_ref["name"]
+        into_branch = [
+            node for node in data["pullRequests"]["nodes"] if node["baseRefName"] == branch
+        ]
+        merged = frozenset(oid for node in into_branch for oid in _pr_commits(node))
         workflows = (data["workflows"] or {}).get("entries", [])
         tree = await self._api.get(
             f"/repos/{repo.full_name}/git/trees/{quote(branch, safe='')}?recursive=1"
@@ -105,12 +121,11 @@ class StandardsClient:
             },
             paths=frozenset(item["path"] for item in tree["tree"] if item["type"] == "blob"),
             required_checks=await self._dependabot.required_checks(repo, branch),
-            commits=[_commit(node) for node in branch_ref["target"]["history"]["nodes"]],
+            commits=[_commit(node, merged) for node in branch_ref["target"]["history"]["nodes"]],
             merged_prs=[
                 _merged_pr(node)
-                for node in data["pullRequests"]["nodes"]
-                if node["baseRefName"] == branch
-                and datetime.fromisoformat(node["mergedAt"]) >= since
+                for node in into_branch
+                if datetime.fromisoformat(node["mergedAt"]) >= since
             ],
         )
 
