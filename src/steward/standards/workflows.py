@@ -2,9 +2,8 @@ import re
 from collections.abc import Iterator, Mapping
 from typing import Any
 
-import yaml
-
 from steward.standards.snapshot import Finding, RepoSnapshot, code_span
+from steward.standards.yaml_files import load_yaml
 
 _PINNED = re.compile(r"[0-9a-f]{40}|v?\d+(\.\d+)*")
 
@@ -16,10 +15,7 @@ def parse_workflows(snapshot: RepoSnapshot) -> Workflows:
     """The workflow files that parse to a mapping; the others are reported as unreadable."""
     parsed = {}
     for name, text in snapshot.workflows.items():
-        try:
-            document = yaml.safe_load(text)
-        except yaml.YAMLError:
-            continue
+        document = load_yaml(text)
         if isinstance(document, dict):
             parsed[name] = document
     return parsed
