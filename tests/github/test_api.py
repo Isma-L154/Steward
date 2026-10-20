@@ -60,3 +60,32 @@ async def test_graphql_partial_without_data_raises(rsa_key: RSAPrivateKey) -> No
         await api.graphql_partial("query { x }", {})
     assert raised.value.status == 200
     assert raised.value.path == "/graphql"
+
+
+async def test_refused_call_carries_github_message_without_the_token(
+    rsa_key: RSAPrivateKey,
+) -> None:
+    http = FakeHttp()
+    api = _api(http, rsa_key)
+    http.on(
+        "GET",
+        "/repos/a/b",
+        403,
+        {"message": "Resource not accessible by integration; token ghs_x was sent as Bearer ghs_x"},
+    )
+    with pytest.raises(GitHubError) as raised:
+        await api.call("GET", "/repos/a/b?per_page=1")
+    assert raised.value.path == "/repos/a/b"
+    assert str(raised.value).startswith(
+        "GitHub answered 403 for /repos/a/b: Resource not accessible by integration"
+    )
+    assert "ghs_x" not in str(raised.value)
+
+
+async def test_graphql_error_carries_its_message(rsa_key: RSAPrivateKey) -> None:
+    http = FakeHttp()
+    api = _api(http, rsa_key)
+    http.on("POST", "/graphql", body={"data": None, "errors": [{"message": "Could not resolve"}]})
+    with pytest.raises(GitHubError) as raised:
+        await api.graphql("query { x }", {})
+    assert raised.value.detail == "Could not resolve"
