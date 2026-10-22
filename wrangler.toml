@@ -14,7 +14,7 @@ OWNER_EMAIL = "ismaleonsaenz@gmail.com"
 # from any other account.
 OWNER_LOGIN = "Isma-L154"
 # Other accounts Steward may merge for, comma-separated logins; empty means the owner only.
-ALLOWED_ACCOUNTS = ""
+ALLOWED_ACCOUNTS = "Wal-014"
 
 [triggers]
 # Weekly standards sweep, Mondays 06:00 UTC. Cloudflare numbers weekdays from 1 = Sunday, so
