@@ -77,6 +77,7 @@ def _repository(**changes: Any) -> dict[str, Any]:
         },
         "readme": {"text": "# Readme"},
         "agents": None,
+        "security": {"text": "# Security"},
         "dependabot": {"text": "version: 2"},
         "workflows": {
             "entries": [
@@ -141,6 +142,7 @@ async def test_snapshot_maps_the_repository(http: FakeHttp, client: StandardsCli
     assert snapshot.default_branch == "main"
     assert snapshot.readme == "# Readme"
     assert snapshot.agents is None
+    assert snapshot.security == "# Security"
     assert snapshot.dependabot == "version: 2"
     assert dict(snapshot.workflows) == {"ci.yml": "on: pull_request"}
     assert snapshot.paths == {"package.json", "src/app.ts"}

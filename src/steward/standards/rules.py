@@ -38,7 +38,7 @@ RULES: tuple[Rule, ...] = (
     Rule("commit-identity", "Commits use the owner's email"),
     Rule("ai-trace", "No AI attribution in commits, pull requests or branch names"),
     Rule("readme", "README follows the standard"),
-    Rule("agents", "AGENTS.md decides the seven baseline security controls"),
+    Rule("agents", "AGENTS.md or SECURITY.md decides the seven baseline security controls"),
 )
 _ORDER = [rule.id for rule in RULES]
 

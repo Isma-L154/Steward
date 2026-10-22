@@ -31,6 +31,7 @@ query($owner: String!, $name: String!, $since: GitTimestamp!) {
     }
     readme: object(expression: "HEAD:README.md") { ... on Blob { text } }
     agents: object(expression: "HEAD:AGENTS.md") { ... on Blob { text } }
+    security: object(expression: "HEAD:SECURITY.md") { ... on Blob { text } }
     dependabot: object(expression: "HEAD:.github/dependabot.yml") { ... on Blob { text } }
     workflows: object(expression: "HEAD:.github/workflows") {
       ... on Tree { entries { name object { ... on Blob { text } } } }
@@ -112,6 +113,7 @@ class StandardsClient:
             default_branch=branch,
             readme=_text(data["readme"]),
             agents=_text(data["agents"]),
+            security=_text(data["security"]),
             dependabot=_text(data["dependabot"]),
             workflows={
                 entry["name"]: text

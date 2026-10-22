@@ -32,6 +32,7 @@ class RepoSnapshot:
     default_branch: str
     readme: str | None
     agents: str | None
+    security: str | None
     dependabot: str | None
     workflows: Mapping[str, str]
     paths: frozenset[str]

@@ -77,3 +77,21 @@ def test_agents_without_the_baseline_heading_is_reported() -> None:
 def test_security_baseline_heading_counts_as_the_controls_section() -> None:
     renamed = AGENTS.replace("Baseline security controls", "Security baseline (global rule 10)")
     assert check_agents(snapshot(agents=renamed)) == []
+
+
+def test_controls_in_security_md_count_when_agents_is_not_committed() -> None:
+    assert check_agents(snapshot(agents=None, security=AGENTS)) == []
+
+
+def test_security_md_missing_one_control_names_the_file_and_the_control() -> None:
+    without_six = re.sub(r"(?m)^6\. .*$", "", AGENTS)
+    findings = check_agents(snapshot(agents=None, security=without_six))
+    assert "`SECURITY.md`" in findings[0].detail
+    assert "6" in findings[0].detail
+
+
+def test_neither_file_with_the_controls_names_both() -> None:
+    findings = check_agents(snapshot(agents=None, security="# Security\n\nReport by email."))
+    assert [f.rule for f in findings] == ["agents"]
+    assert "`AGENTS.md`" in findings[0].detail
+    assert "`SECURITY.md`" in findings[0].detail
