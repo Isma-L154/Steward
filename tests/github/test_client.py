@@ -9,6 +9,8 @@ from steward.github.app_auth import InstallationTokens
 from steward.github.client import GitHubClient
 from steward.github.http import GitHubError
 from steward.github.models import (
+    BranchActivity,
+    BranchPush,
     BranchUpdate,
     CheckResult,
     CheckState,
@@ -84,6 +86,7 @@ async def test_pull_request_is_mapped(http: FakeHttp, client: GitHubClient) -> N
         draft=False,
         author="dependabot[bot]",
         head_sha="abc",
+        head_ref="dependabot/uv/x",
         base_ref="main",
         mergeable=None,
         labels=frozenset({"dependencies", "major-ready"}),
@@ -332,3 +335,46 @@ async def test_installed_repositories(http: FakeHttp, client: GitHubClient) -> N
         InstalledRepo(RepoRef("o", "a"), archived=False, topics=("x",)),
         InstalledRepo(RepoRef("o", "b"), archived=True, topics=()),
     ]
+
+
+async def test_branch_activity_lists_who_pushed_newest_first(
+    http: FakeHttp, client: GitHubClient
+) -> None:
+    http.on(
+        "GET",
+        f"{BASE}/activity",
+        body=[
+            {
+                "activity_type": "branch_deletion",
+                "actor": {"login": "dependabot[bot]"},
+                "after": "0",
+            },
+            {"activity_type": "push", "actor": {"login": "app-steward[bot]"}, "after": "bbb"},
+            {"activity_type": "force_push", "actor": None, "after": "aab"},
+            {
+                "activity_type": "branch_creation",
+                "actor": {"login": "dependabot[bot]"},
+                "after": "aaa",
+            },
+        ],
+    )
+    activity = await client.branch_activity(REPO, "dependabot/npm/left-pad-2")
+    assert activity == BranchActivity(
+        (
+            BranchPush("app-steward[bot]", "bbb"),
+            BranchPush(None, "aab"),
+            BranchPush("dependabot[bot]", "aaa"),
+        ),
+        complete=True,
+    )
+    query = http.requests[-1].query.split("&")
+    assert "ref=refs%2Fheads%2Fdependabot%2Fnpm%2Fleft-pad-2" in query
+    assert "per_page=100" in query
+
+
+async def test_a_full_page_of_activity_may_be_truncated(
+    http: FakeHttp, client: GitHubClient
+) -> None:
+    item = {"activity_type": "push", "actor": {"login": "dependabot[bot]"}, "after": "a"}
+    http.on("GET", f"{BASE}/activity", body=[item] * 100)
+    assert not (await client.branch_activity(REPO, "x")).complete

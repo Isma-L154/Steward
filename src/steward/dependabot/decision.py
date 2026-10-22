@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
+from steward.dependabot.pushes import PushTrust
 from steward.dependabot.update_type import UpdateType
 from steward.dependabot.verdict import Verdict
 
@@ -27,6 +28,7 @@ class Decision:
 @dataclass(frozen=True)
 class Facts:
     authored_by_dependabot: bool
+    pushes: PushTrust
     open: bool
     update_type: UpdateType
     verdict: Verdict
@@ -42,6 +44,11 @@ _MAJOR_LABELS = {Verdict.GREEN: MAJOR_READY, Verdict.RED: MAJOR_BROKEN}
 
 def decide(facts: Facts) -> Decision:
     if not (facts.authored_by_dependabot and facts.open):
+        return _NOTHING
+    # Someone else pushed to the update's branch: it is not Dependabot's change any more.
+    if facts.pushes is PushTrust.UNTRUSTED:
+        return Decision(Kind.LABEL, UPDATE_BLOCKED)
+    if facts.pushes is PushTrust.UNKNOWN:
         return _NOTHING
     if facts.update_type is UpdateType.MAJOR:
         return _decide_major(facts.verdict)

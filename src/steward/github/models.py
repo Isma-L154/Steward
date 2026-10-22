@@ -65,9 +65,24 @@ class PullRequest:
     draft: bool
     author: str
     head_sha: str
+    head_ref: str
     base_ref: str
     mergeable: bool | None
     labels: frozenset[str]
+
+
+@dataclass(frozen=True)
+class BranchPush:
+    actor: str | None
+    after: str
+
+
+@dataclass(frozen=True)
+class BranchActivity:
+    """Pushes to one branch, newest first. `complete` is False when the listing may be cut."""
+
+    pushes: tuple[BranchPush, ...]
+    complete: bool
 
 
 @dataclass(frozen=True)

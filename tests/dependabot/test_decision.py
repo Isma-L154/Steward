@@ -8,17 +8,20 @@ from steward.dependabot.decision import (
     MAJOR_BROKEN,
     MAJOR_READY,
     MANAGED_LABELS,
+    UPDATE_BLOCKED,
     UPDATE_BROKEN,
     Decision,
     Facts,
     Kind,
     decide,
 )
+from steward.dependabot.pushes import PushTrust
 from steward.dependabot.update_type import UpdateType
 from steward.dependabot.verdict import Verdict
 
 MERGEABLE = Facts(
     authored_by_dependabot=True,
+    pushes=PushTrust.TRUSTED,
     open=True,
     update_type=UpdateType.MINOR,
     verdict=Verdict.GREEN,
@@ -89,6 +92,7 @@ def test_behind_with_branch_update_already_requested_does_nothing() -> None:
     st.builds(
         Facts,
         authored_by_dependabot=st.booleans(),
+        pushes=st.sampled_from(PushTrust),
         open=st.booleans(),
         update_type=st.sampled_from(UpdateType),
         verdict=st.sampled_from(Verdict),
@@ -105,7 +109,19 @@ def test_merge_only_for_green_dependabot_minor_or_patch_with_required_checks(
         assert facts.update_type is not UpdateType.MAJOR
         assert facts.verdict is Verdict.GREEN
         assert facts.authored_by_dependabot
+        assert facts.pushes is PushTrust.TRUSTED
         assert facts.open
         assert facts.has_required_checks
         assert facts.mergeable is True
         assert facts.behind_by == 0
+
+
+@pytest.mark.parametrize("update_type", list(UpdateType))
+def test_a_push_by_someone_else_blocks_the_update(update_type: UpdateType) -> None:
+    facts = replace(MERGEABLE, pushes=PushTrust.UNTRUSTED, update_type=update_type)
+    assert decide(facts) == Decision(Kind.LABEL, UPDATE_BLOCKED)
+
+
+@pytest.mark.parametrize("verdict", list(Verdict))
+def test_pushes_not_known_yet_decide_nothing(verdict: Verdict) -> None:
+    assert decide(replace(MERGEABLE, pushes=PushTrust.UNKNOWN, verdict=verdict)) == NOTHING
