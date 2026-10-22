@@ -84,6 +84,7 @@ def snapshot(**changes: Any) -> RepoSnapshot:
         default_branch="main",
         readme=(ROOT / "README.md").read_text(encoding="utf-8"),
         agents=(ROOT / "AGENTS.md").read_text(encoding="utf-8"),
+        security=None,
         dependabot=DEPENDABOT,
         workflows={"ci.yml": CI, "deploy.yml": DEPLOY},
         paths=frozenset(

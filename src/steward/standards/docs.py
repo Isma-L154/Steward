@@ -49,12 +49,25 @@ def check_readme(snapshot: RepoSnapshot) -> list[Finding]:
 
 
 def check_agents(snapshot: RepoSnapshot) -> list[Finding]:
-    text = snapshot.agents
-    if text is None:
-        return [Finding("agents", "`AGENTS.md` is missing")]
-    heading = _BASELINE.search(text)
-    if heading is None:
-        return [Finding("agents", "`AGENTS.md` has no baseline security controls section")]
+    # Public repositories may keep AGENTS.md out of git as local tooling; SECURITY.md then
+    # carries the controls.
+    documents = (("AGENTS.md", snapshot.agents), ("SECURITY.md", snapshot.security))
+    located = next(
+        (
+            (name, text, heading)
+            for name, text in documents
+            if text is not None and (heading := _BASELINE.search(text))
+        ),
+        None,
+    )
+    if located is None:
+        return [
+            Finding(
+                "agents",
+                "Neither `AGENTS.md` nor `SECURITY.md` has a baseline security controls section",
+            )
+        ]
+    name, text, heading = located
     section = text[heading.end() :]
     decided = {
         int(number)
@@ -67,6 +80,6 @@ def check_agents(snapshot: RepoSnapshot) -> list[Finding]:
     return [
         Finding(
             "agents",
-            "`AGENTS.md` does not decide baseline control(s) " + ", ".join(undecided),
+            f"`{name}` does not decide baseline control(s) " + ", ".join(undecided),
         )
     ]
