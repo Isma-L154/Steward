@@ -8,6 +8,7 @@ _BANNER = re.compile(
 )
 _HEADING = re.compile(r"^## +(.+?)\s*$", re.MULTILINE)
 _REQUIRED = ("What it does", "How it works", "License")
+_SPELLINGS = {"Licence": "License"}
 _ORDER = {
     "What it does": 0,
     "How it works": 1,
@@ -19,7 +20,9 @@ _ORDER = {
     "License": 5,
 }
 _CONTROLS = range(1, 8)
-_BASELINE = re.compile(r"^#+ .*Baseline security controls.*$", re.MULTILINE | re.IGNORECASE)
+_BASELINE = re.compile(
+    r"^#+ .*(?:Baseline security controls|Security baseline).*$", re.MULTILINE | re.IGNORECASE
+)
 
 
 def check_readme(snapshot: RepoSnapshot) -> list[Finding]:
@@ -33,7 +36,9 @@ def check_readme(snapshot: RepoSnapshot) -> list[Finding]:
         missing.append("status badges")
     if "```mermaid" not in text:
         missing.append("the Mermaid architecture diagram")
-    headings = _HEADING.findall(text)
+    # A README covering several tools repeats the sections once per tool, so the order is
+    # read from where each section first appears.
+    headings = dict.fromkeys(_SPELLINGS.get(h, h) for h in _HEADING.findall(text))
     missing += [f"the `{section}` section" for section in _REQUIRED if section not in headings]
     ranks = [_ORDER[heading] for heading in headings if heading in _ORDER]
     if ranks != sorted(ranks):
