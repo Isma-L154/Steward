@@ -9,13 +9,14 @@ from steward.dependabot.decision import (
     decide,
 )
 from steward.dependabot.ports import BranchUpdateMemory, DependabotGitHub
+from steward.dependabot.pushes import push_trust
 from steward.dependabot.update_type import UpdateType, classify
 from steward.dependabot.verdict import ci_verdict
 from steward.github.models import DEPENDABOT_LOGIN, BranchUpdate, PullRequest, RepoRef
 
 _MERGEABLE_REREADS = 3
-# Each evaluation costs about ten GitHub calls; the free plan allows 50 per invocation.
-_MAX_OPEN_PER_PUSH = 4
+# Each evaluation costs about a dozen GitHub calls; the free plan allows 50 per invocation.
+_MAX_OPEN_PER_PUSH = 3
 _REREAD_DELAY_SECONDS = 1.0
 
 
@@ -30,7 +31,7 @@ class DependabotService:
         self._github = github
         self._memory = memory
         self._sleep = sleep
-        # Updating a branch adds a merge commit authored by this App's own bot.
+        # Updating a branch adds a merge commit authored and pushed by this App's own bot.
         self._trusted_authors = frozenset({DEPENDABOT_LOGIN, own_login})
 
     async def evaluate(self, repo: RepoRef, number: int) -> Decision:
@@ -58,12 +59,14 @@ class DependabotService:
 
     async def _facts(self, repo: RepoRef, pr: PullRequest) -> Facts:
         commits = await self._github.pull_request_commits(repo, pr.number)
+        activity = await self._github.branch_activity(repo, pr.head_ref)
         required = await self._github.required_checks(repo, pr.base_ref)
         results = await self._github.check_results(repo, pr.head_sha)
         return Facts(
             authored_by_dependabot=bool(commits)
             and commits[0].author == DEPENDABOT_LOGIN
             and all(commit.author in self._trusted_authors for commit in commits),
+            pushes=push_trust(activity, self._trusted_authors, pr.head_sha),
             open=pr.state == "open" and not pr.draft,
             update_type=classify(commits[0].message) if commits else UpdateType.MAJOR,
             verdict=ci_verdict(results, required),

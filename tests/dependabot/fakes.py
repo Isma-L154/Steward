@@ -3,6 +3,8 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from steward.github.models import (
+    BranchActivity,
+    BranchPush,
     BranchUpdate,
     CheckResult,
     CheckState,
@@ -15,6 +17,8 @@ from steward.github.models import (
 REPO = RepoRef("Isma-L154", "nextsode")
 DEPENDABOT = "dependabot[bot]"
 STEWARD = "app-steward[bot]"
+# Dependabot created the branch at the head commit and nobody else pushed.
+ONLY_DEPENDABOT = BranchActivity((BranchPush(DEPENDABOT, "abc"),), complete=True)
 
 
 def dependabot_pr(**changes: Any) -> PullRequest:
@@ -24,6 +28,7 @@ def dependabot_pr(**changes: Any) -> PullRequest:
         draft=False,
         author=DEPENDABOT,
         head_sha="abc",
+        head_ref="dependabot/uv/httpx-0.28.1",
         base_ref="main",
         mergeable=True,
         labels=frozenset(),
@@ -60,6 +65,8 @@ def failure(name: str) -> CheckResult:
 class FakeGitHub:
     pr: PullRequest = field(default_factory=dependabot_pr)
     commits: Sequence[Commit] = field(default_factory=lambda: [minor_commit()])
+    activity: BranchActivity = ONLY_DEPENDABOT
+    activity_branches: list[str] = field(default_factory=list)
     required: frozenset[str] = frozenset({"test"})
     checks: Sequence[CheckResult] = field(default_factory=lambda: [success("test")])
     behind: int = 0
@@ -86,6 +93,10 @@ class FakeGitHub:
 
     async def pull_request_commits(self, repo: RepoRef, number: int) -> list[Commit]:
         return list(self.commits)
+
+    async def branch_activity(self, repo: RepoRef, branch: str) -> BranchActivity:
+        self.activity_branches.append(branch)
+        return self.activity
 
     async def required_checks(self, repo: RepoRef, branch: str) -> frozenset[str]:
         return self.required
