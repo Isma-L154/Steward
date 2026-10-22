@@ -5,9 +5,9 @@ from typing import Any
 
 from steward.config import load_config
 from steward.github.api import GitHubApi
-from steward.github.app_auth import InstallationTokens, installations
+from steward.github.app_auth import InstallationTokens, installations, uninstall
 from steward.github.client import GitHubClient
-from steward.github.models import InstalledRepo, RepoRef
+from steward.github.models import Installation, InstalledRepo, RepoRef
 from steward.standards.sweep import sweep
 from steward.worker.fetch_http import WorkersFetch
 from steward.worker.webcrypto import WebCryptoSigner
@@ -37,5 +37,10 @@ async def run_weekly_sweep(env: Any) -> int:
         if status != 200:  # noqa: PLR2004 - the audit's "OK"
             raise RuntimeError(f"audit answered {status}")
 
+    async def remove(installation: Installation) -> None:
+        removed = await uninstall(http, config.app_id, signer, int(time.time()), installation)
+        # The login comes from GitHub's listing: repr keeps it on one log line.
+        print(f"installation {installation.id} of {installation.account!r}: removed={removed}")
+
     installed = await installations(http, config.app_id, signer, int(time.time()))
-    return await sweep(installed, config.accounts, repositories, audit)
+    return await sweep(installed, config.accounts, repositories, audit, remove)
