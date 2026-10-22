@@ -5,9 +5,6 @@ from datetime import UTC, datetime
 from steward.github.models import RepoRef
 
 MAX_TITLE = 200
-URL_PATTERN = re.compile(
-    r"^https://github\.com/[A-Za-z0-9-]+/[A-Za-z0-9._-]+(/(pull|issues)/[0-9]+)?$"
-)
 _OWNER = re.compile(r"[A-Za-z0-9-]+")
 _NAME = re.compile(r"[A-Za-z0-9._-]+")
 _UNCHECKED = re.compile(r"^- \[ \] ", re.MULTILINE)

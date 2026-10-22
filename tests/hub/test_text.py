@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
@@ -7,7 +8,6 @@ from hypothesis import strategies as st
 from steward.github.models import RepoRef
 from steward.hub.text import (
     MAX_TITLE,
-    URL_PATTERN,
     clean_title,
     is_safe_repo,
     iso,
@@ -17,6 +17,9 @@ from steward.hub.text import (
     unchecked_findings,
 )
 
+URL_PATTERN = re.compile(
+    r"^https://github\.com/[A-Za-z0-9-]+/[A-Za-z0-9._-]+(/(pull|issues)/[0-9]+)?$"
+)
 _owners = st.from_regex(r"[A-Za-z0-9-]{1,39}", fullmatch=True)
 _names = st.from_regex(r"[A-Za-z0-9._-]{1,100}", fullmatch=True).filter(
     lambda name: name not in {".", ".."}
