@@ -5,6 +5,8 @@ from urllib.parse import quote
 from steward.github.api import GitHubApi
 from steward.github.models import (
     DEPENDABOT_LOGIN,
+    BranchActivity,
+    BranchPush,
     BranchUpdate,
     CheckResult,
     CheckState,
@@ -17,6 +19,7 @@ from steward.github.models import (
 
 # A Dependabot pull request has far fewer than 100 commits or checks, so one page is enough.
 _PAGE = "?per_page=100"
+_ACTIVITY_PAGE = 100
 _BRANCH_UPDATES = {
     HTTPStatus.ACCEPTED: BranchUpdate.UPDATED,
     HTTPStatus.UNPROCESSABLE_ENTITY: BranchUpdate.NOT_NOW,
@@ -61,6 +64,7 @@ class GitHubClient:
             draft=data["draft"],
             author=data["user"]["login"],
             head_sha=data["head"]["sha"],
+            head_ref=data["head"]["ref"],
             base_ref=data["base"]["ref"],
             mergeable=data["mergeable"],
             labels=frozenset(label["name"] for label in data["labels"]),
@@ -76,6 +80,18 @@ class GitHubClient:
             Commit(item["author"]["login"] if item["author"] else None, item["commit"]["message"])
             for item in data
         ]
+
+    async def branch_activity(self, repo: RepoRef, branch: str) -> BranchActivity:
+        ref = quote(f"refs/heads/{branch}", safe="")
+        items = await self._api.get(
+            f"/repos/{repo.full_name}/activity?ref={ref}&per_page={_ACTIVITY_PAGE}"
+        )
+        pushes = tuple(
+            BranchPush((item.get("actor") or {}).get("login"), item["after"])
+            for item in items
+            if item["activity_type"] != "branch_deletion"
+        )
+        return BranchActivity(pushes, complete=len(items) < _ACTIVITY_PAGE)
 
     async def required_checks(self, repo: RepoRef, branch: str) -> frozenset[str]:
         # Repositories may protect a branch with rulesets, classic protection, or both.

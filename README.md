@@ -26,7 +26,7 @@
 
 - **Merges safe updates by itself** — a Dependabot patch or minor update is approved and merged as soon as every check on it passes, using the repository's merge method (squash first).
 - **Never merges a major** — a major update gets `major-ready` when CI passes or `major-broken` when it fails, and waits for you.
-- **Flags broken updates** — a patch or minor update with failing CI gets `update-broken`, and one whose branch GitHub will not let Steward update gets `update-blocked`; both go away once it merges.
+- **Flags broken updates** — a patch or minor update with failing CI gets `update-broken`, and one whose branch GitHub will not let Steward update, or that anyone but Dependabot or Steward pushed to, gets `update-blocked` and is never approved; both go away once it merges.
 - **One update at a time per repository** — evaluations for a repository run one after another, and an update behind `main` gets its branch updated with `main` (once per head commit), so CI runs on the real combination before it merges.
 - **Fails closed** — no auto-merge in a repository whose `main` has no required status checks, when a required check never reported, when the update type is unclear, or when anyone but Dependabot (or Steward's own branch update) pushed a commit to the branch.
 - **Checks every repository against one set of rules** — on every push to the default branch and every Monday, it checks CI triggers, pinned actions, workflow permissions and concurrency, Dependabot coverage, required checks, direct pushes, issue references, commit identity, AI attribution, the README standard and the `AGENTS.md` security baseline.

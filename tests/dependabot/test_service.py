@@ -1,7 +1,8 @@
 from steward.dependabot.decision import Decision, Kind
 from steward.dependabot.service import DependabotService
-from steward.github.models import BranchUpdate, Commit
+from steward.github.models import BranchActivity, BranchPush, BranchUpdate, Commit
 from tests.dependabot.fakes import (
+    DEPENDABOT,
     REPO,
     STEWARD,
     FakeGitHub,
@@ -105,7 +106,8 @@ async def test_behind_updates_the_branch_once_per_head_sha() -> None:
 async def test_new_head_after_an_update_can_be_updated_again() -> None:
     memory = FakeMemory()
     await _service(FakeGitHub(behind=3), memory).evaluate(REPO, 7)
-    github = FakeGitHub(pr=dependabot_pr(head_sha="def"), behind=1)
+    updated = BranchActivity((BranchPush(STEWARD, "def"), BranchPush(DEPENDABOT, "abc")), True)
+    github = FakeGitHub(pr=dependabot_pr(head_sha="def"), behind=1, activity=updated)
     assert (await _service(github, memory).evaluate(REPO, 7)).kind is Kind.UPDATE_BRANCH
 
 
@@ -161,10 +163,10 @@ async def test_open_updates_are_all_evaluated() -> None:
     assert [d.kind for d in decisions] == [Kind.MERGE, Kind.MERGE]
 
 
-async def test_at_most_four_open_updates_are_evaluated_per_push() -> None:
+async def test_at_most_three_open_updates_are_evaluated_per_push() -> None:
     github = FakeGitHub(open_numbers=[1, 2, 3, 4, 5, 6])
-    assert len(await _service(github).evaluate_open(REPO)) == 4
-    assert github.read_numbers == [1, 2, 3, 4]
+    assert len(await _service(github).evaluate_open(REPO)) == 3
+    assert github.read_numbers == [1, 2, 3]
 
 
 async def test_no_open_updates_evaluates_nothing() -> None:
@@ -195,3 +197,29 @@ async def test_merge_clears_update_blocked() -> None:
     github = FakeGitHub(pr=dependabot_pr(labels=frozenset({"update-blocked"})))
     await _service(github).evaluate(REPO, 7)
     assert github.writes[0] == ("remove_label", 7, "update-blocked")
+
+
+async def test_spoofed_commit_pushed_by_someone_else_is_blocked_not_approved() -> None:
+    # Every commit claims Dependabot as author; the activity shows who really pushed.
+    pushed = BranchActivity(
+        (BranchPush("mallory", "abc"), BranchPush(DEPENDABOT, "old")), complete=True
+    )
+    github = FakeGitHub(activity=pushed)
+    decision = await _service(github).evaluate(REPO, 7)
+    assert decision == Decision(Kind.LABEL, "update-blocked")
+    assert github.writes == [("add_label", 7, "update-blocked")]
+    assert github.activity_branches == ["dependabot/uv/httpx-0.28.1"]
+
+
+async def test_branch_updated_by_steward_is_still_trusted() -> None:
+    pushed = BranchActivity(
+        (BranchPush(STEWARD, "abc"), BranchPush(DEPENDABOT, "old")), complete=True
+    )
+    github = FakeGitHub(activity=pushed)
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.MERGE
+
+
+async def test_activity_behind_the_head_waits() -> None:
+    github = FakeGitHub(activity=BranchActivity((BranchPush(DEPENDABOT, "old"),), True))
+    assert (await _service(github).evaluate(REPO, 7)).kind is Kind.NOTHING
+    assert github.writes == []
