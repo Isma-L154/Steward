@@ -4,7 +4,8 @@ from pathlib import PurePosixPath
 from steward.standards.snapshot import Finding, RepoSnapshot, code_span
 from steward.standards.yaml_files import load_yaml
 
-_VENDORED = frozenset({"node_modules", "vendor", ".venv", "python_modules"})
+# Vendored code and test inputs hold manifests nobody installs, so Dependabot has nothing to update.
+_SKIPPED = frozenset({"node_modules", "vendor", ".venv", "python_modules", "testdata", "fixtures"})
 _MANIFESTS = (
     ("package.json", "npm"),
     ("pyproject.toml", "pip"),
@@ -33,7 +34,7 @@ def detected_ecosystems(paths: frozenset[str]) -> frozenset[str]:
     found = set()
     for path in paths:
         parts = PurePosixPath(path).parts
-        if _VENDORED.intersection(parts[:-1]):
+        if _SKIPPED.intersection(parts[:-1]):
             continue
         if parts[:2] == (".github", "workflows"):
             found.add("github-actions")

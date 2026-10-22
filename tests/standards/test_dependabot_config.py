@@ -35,6 +35,17 @@ def test_manifests_under_vendored_folders_are_ignored() -> None:
     assert detected_ecosystems(paths) == frozenset()
 
 
+def test_manifests_under_test_fixture_folders_are_ignored() -> None:
+    paths = frozenset(
+        {
+            "core/internal/analyzer/testdata/simple-network/main.tf",
+            "fixtures/diagram/networking.tf",
+            "tests/fixtures/app/package.json",
+        }
+    )
+    assert detected_ecosystems(paths) == frozenset()
+
+
 def test_missing_dependabot_file_is_reported() -> None:
     assert [f.rule for f in check_dependabot(snapshot(dependabot=None))] == ["dependabot"]
 

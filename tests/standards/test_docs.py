@@ -46,6 +46,18 @@ def test_readme_sections_out_of_order_are_reported() -> None:
     assert "order" in findings[0].detail
 
 
+def test_licence_counts_as_the_license_section() -> None:
+    assert check_readme(snapshot(readme=README.replace("## License", "## Licence"))) == []
+
+
+def test_readme_repeating_its_sections_for_a_second_tool_keeps_the_order() -> None:
+    header, _, rest = README.partition("## What it does")
+    sections, _, license_ = rest.partition("## License")
+    tool = "## What it does" + sections
+    two_tools = header + tool + "# Second tool\n\n" + tool + "## License" + license_
+    assert check_readme(snapshot(readme=two_tools)) == []
+
+
 def test_missing_agents_is_reported() -> None:
     assert [f.rule for f in check_agents(snapshot(agents=None))] == ["agents"]
 
@@ -60,3 +72,8 @@ def test_agents_missing_one_control_names_it() -> None:
 def test_agents_without_the_baseline_heading_is_reported() -> None:
     findings = check_agents(snapshot(agents=AGENTS.replace("Baseline security controls", "X")))
     assert [f.rule for f in findings] == ["agents"]
+
+
+def test_security_baseline_heading_counts_as_the_controls_section() -> None:
+    renamed = AGENTS.replace("Baseline security controls", "Security baseline (global rule 10)")
+    assert check_agents(snapshot(agents=renamed)) == []
