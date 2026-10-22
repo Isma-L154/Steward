@@ -10,6 +10,7 @@ async def sweep(
     accounts: Accounts,
     repositories: Callable[[int], Awaitable[Sequence[InstalledRepo]]],
     audit: Callable[[int, RepoRef], Awaitable[None]],
+    remove: Callable[[Installation], Awaitable[None]],
 ) -> int:
     audited = 0
     for installation in installations:
@@ -25,4 +26,13 @@ async def sweep(
                 print(f"{installed.repo.full_name}: audit failed: {error}")
                 continue
             audited += 1
+    # Installations whose webhook removal was missed. After the audits, so removals never
+    # spend the subrequests the audits need.
+    for installation in installations:
+        if accounts.may_act(installation.account):
+            continue
+        try:
+            await remove(installation)
+        except Exception as error:  # one installation must not stop the sweep
+            print(f"installation {installation.id}: uninstall failed: {error}")
     return audited
