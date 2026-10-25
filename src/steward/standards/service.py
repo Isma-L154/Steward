@@ -1,9 +1,9 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 
-from steward.github.models import DEPENDABOT_LOGIN, RepoRef, graphql_login
+from steward.github.models import DEPENDABOT_LOGIN, RepoRef, TrackingIssue, graphql_login
 from steward.standards.ports import StandardsGitHub
-from steward.standards.report import ISSUE_LABEL, ISSUE_TITLE, render_body
+from steward.standards.report import ISSUE_LABEL, ISSUE_TITLE, listed_findings, render_body
 from steward.standards.rules import run_checks
 from steward.standards.snapshot import WINDOW_DAYS, Finding
 
@@ -12,6 +12,16 @@ _DEPENDABOT = frozenset({DEPENDABOT_LOGIN, graphql_login(DEPENDABOT_LOGIN)})
 
 def _normalized(body: str) -> str:
     return body.replace("\r\n", "\n").strip()
+
+
+def _tracked(issues: Sequence[TrackingIssue]) -> TrackingIssue | None:
+    """The open issue, else the newest one if Steward closed it; never one the owner closed."""
+    for issue in issues:
+        if issue.state == "open":
+            return issue
+    if issues and not listed_findings(issues[0].body):
+        return issues[0]
+    return None
 
 
 class StandardsService:
@@ -33,9 +43,19 @@ class StandardsService:
         snapshot = await self._github.snapshot(repo, since)
         if snapshot is None:
             return []
-        findings = run_checks(snapshot, self._owner_email, self._trusted_bots)
+        issues = await self._github.standards_issues(repo, self._own_login, ISSUE_LABEL)
+        # Steward closes its issue with a body that lists nothing, so a closed issue that
+        # still lists findings was closed by the owner: those findings are dismissed.
+        dismissed = frozenset[str]().union(
+            *(listed_findings(issue.body) for issue in issues if issue.state == "closed")
+        )
+        findings = [
+            finding
+            for finding in run_checks(snapshot, self._owner_email, self._trusted_bots)
+            if finding.detail not in dismissed
+        ]
         body = render_body(repo, findings)
-        issue = await self._github.tracking_issue(repo, self._own_login, ISSUE_LABEL)
+        issue = _tracked(issues)
         if findings and issue is None:
             await self._github.create_issue(repo, ISSUE_TITLE, body, ISSUE_LABEL)
         elif findings and issue is not None:

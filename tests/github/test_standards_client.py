@@ -218,30 +218,32 @@ async def test_empty_repository_has_no_snapshot(http: FakeHttp, client: Standard
     assert await client.snapshot(REPO, SINCE) is None
 
 
-async def test_tracking_issue_skips_pull_requests(http: FakeHttp, client: StandardsClient) -> None:
+async def test_standards_issues_skip_pull_requests(http: FakeHttp, client: StandardsClient) -> None:
     http.on(
         "GET",
         f"{BASE}/issues",
         body=[
             {"number": 9, "state": "open", "body": "x", "pull_request": {}},
+            {"number": 8, "state": "open", "body": "y"},
             {"number": 7, "state": "closed", "body": None},
         ],
     )
-    assert await client.tracking_issue(REPO, "app-steward[bot]", "standards") == TrackingIssue(
-        7, "closed", ""
-    )
+    assert await client.standards_issues(REPO, "app-steward[bot]", "standards") == [
+        TrackingIssue(8, "open", "y"),
+        TrackingIssue(7, "closed", ""),
+    ]
 
 
-async def test_no_tracking_issue(http: FakeHttp, client: StandardsClient) -> None:
+async def test_no_standards_issues(http: FakeHttp, client: StandardsClient) -> None:
     http.on("GET", f"{BASE}/issues", body=[])
-    assert await client.tracking_issue(REPO, "app-steward[bot]", "standards") is None
+    assert await client.standards_issues(REPO, "app-steward[bot]", "standards") == []
 
 
-async def test_tracking_issue_looks_up_the_given_label(
+async def test_standards_issues_look_up_the_given_label(
     http: FakeHttp, client: StandardsClient
 ) -> None:
     http.on("GET", f"{BASE}/issues", body=[])
-    await client.tracking_issue(REPO, "app-steward[bot]", "quality")
+    await client.standards_issues(REPO, "app-steward[bot]", "quality")
     assert "labels=quality" in http.requests[-1].query.split("&")
 
 
