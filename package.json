@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "wrangler": "4.149.0"
+    "wrangler": "4.151.1"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
