@@ -9,7 +9,7 @@ from steward.standards.snapshot import RepoSnapshot
 @dataclass
 class FakeStandardsGitHub:
     repo_snapshot: RepoSnapshot | None
-    issue: TrackingIssue | None = None
+    issues: list[TrackingIssue] = field(default_factory=list)
     writes: list[tuple[Any, ...]] = field(default_factory=list)
     asked_since: datetime | None = None
 
@@ -17,10 +17,12 @@ class FakeStandardsGitHub:
         self.asked_since = since
         return self.repo_snapshot
 
-    async def tracking_issue(self, repo: RepoRef, creator: str, label: str) -> TrackingIssue | None:
+    async def standards_issues(
+        self, repo: RepoRef, creator: str, label: str
+    ) -> list[TrackingIssue]:
         assert creator == "app-steward[bot]"
         assert label == "standards"
-        return self.issue
+        return self.issues
 
     async def create_issue(self, repo: RepoRef, title: str, body: str, label: str) -> None:
         self.writes.append(("create", title, body, label))

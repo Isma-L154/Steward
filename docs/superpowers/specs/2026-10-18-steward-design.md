@@ -90,7 +90,7 @@ These would make it a failure even if everything else works:
 
 Checks about commits and pull requests look only at activity since the previous run, and the last 30 days on a repository's first run, so old history from before the rules existed is not flagged. **(builder's call, settled)**
 
-**Reporting:** one issue per repository titled "Repository standards", labelled `standards`, opened by the App, with one checkbox per failing rule and a link to the offending file, commit or pull request. Each run updates the same issue; when everything passes it is closed; if something breaks again it is reopened, not duplicated. Text taken from the repository (file names, PR titles) is escaped so it cannot render as a mention, link or markup in the issue.
+**Reporting:** one issue per repository titled "Repository standards", labelled `standards`, opened by the App, with one checkbox per failing rule and a link to the offending file, commit or pull request. Each run updates the same issue; when everything passes it is closed; if something breaks again it is reopened, not duplicated. An issue the owner closes while it still lists findings dismisses them: Steward closes its own issue with a body that lists nothing, so it never reopens one that still lists findings, leaves dismissed findings out of every later body, and opens a new issue only for findings that were not dismissed. Reopening the issue by hand undoes the dismissal. Text taken from the repository (file names, PR titles) is escaped so it cannot render as a mention, link or markup in the issue.
 
 Archived repositories are skipped.
 

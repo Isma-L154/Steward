@@ -1,7 +1,7 @@
 import re
 
 from steward.github.models import RepoRef
-from steward.standards.report import ISSUE_LABEL, ISSUE_TITLE, render_body
+from steward.standards.report import ISSUE_LABEL, ISSUE_TITLE, listed_findings, render_body
 from steward.standards.rules import RULES
 from steward.standards.snapshot import WINDOW_DAYS, Finding, code_span
 
@@ -44,8 +44,24 @@ def test_body_never_mentions_anyone() -> None:
     assert "@" not in _outside_code(body)
 
 
-def test_empty_findings_say_all_rules_pass() -> None:
-    assert "All rules pass" in render_body(REPO, [])
+def test_empty_findings_say_nothing_is_left_to_fix() -> None:
+    body = render_body(REPO, [])
+    assert "Nothing left to fix" in body
+    assert listed_findings(body) == frozenset()
+
+
+def test_listed_findings_read_back_every_rendered_detail() -> None:
+    findings = [
+        Finding("actions-pinned", "`ci.yml` uses unpinned actions"),
+        Finding("readme", "`README.md` lacks status badges"),
+    ]
+    body = render_body(REPO, findings).replace("\n", "\r\n")
+    assert listed_findings(body) == {finding.detail for finding in findings}
+
+
+def test_ticked_findings_are_listed_too() -> None:
+    body = "- [x] `ci.yml` declares no concurrency\n"
+    assert listed_findings(body) == {"`ci.yml` declares no concurrency"}
 
 
 def test_footer_states_the_audit_window() -> None:

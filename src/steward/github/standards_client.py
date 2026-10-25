@@ -131,15 +131,18 @@ class StandardsClient:
             ],
         )
 
-    async def tracking_issue(self, repo: RepoRef, creator: str, label: str) -> TrackingIssue | None:
+    async def standards_issues(
+        self, repo: RepoRef, creator: str, label: str
+    ) -> list[TrackingIssue]:
         issues = await self._api.get(
             f"/repos/{repo.full_name}/issues?state=all&labels={quote(label)}"
             f"&creator={quote(creator)}&per_page=100"
         )
-        for issue in issues:
-            if "pull_request" not in issue:
-                return TrackingIssue(issue["number"], issue["state"], issue["body"] or "")
-        return None
+        return [
+            TrackingIssue(issue["number"], issue["state"], issue["body"] or "")
+            for issue in issues
+            if "pull_request" not in issue
+        ]
 
     async def create_issue(self, repo: RepoRef, title: str, body: str, label: str) -> None:
         await self._api.call(
