@@ -6,7 +6,7 @@ from urllib.parse import quote
 from steward.github.api import GitHubApi
 from steward.github.client import GitHubClient
 from steward.github.models import RepoRef, TrackingIssue
-from steward.standards.snapshot import CommitInfo, MergedPr, RepoSnapshot
+from steward.standards.snapshot import CommitInfo, RepoSnapshot
 
 # One query reads everything the checks need except the tree and the branch rules, so an
 # audit stays far below the free plan's 50 subrequests per invocation.
@@ -20,7 +20,6 @@ query($owner: String!, $name: String!, $since: GitTimestamp!) {
           history(first: 100, since: $since) {
             nodes {
               oid
-              message
               parents { totalCount }
               author { email user { login } }
               associatedPullRequests(first: 5) { nodes { merged } }
@@ -38,9 +37,7 @@ query($owner: String!, $name: String!, $since: GitTimestamp!) {
     }
     pullRequests(states: MERGED, first: 50, orderBy: {field: UPDATED_AT, direction: DESC}) {
       nodes {
-        number title body headRefName baseRefName mergedAt
-        author { login }
-        closingIssuesReferences { totalCount }
+        baseRefName
         mergeCommit { oid }
         commits(first: 100) { nodes { commit { oid } } }
       }
@@ -66,7 +63,6 @@ def _commit(node: dict[str, Any], merged: frozenset[str]) -> CommitInfo:
     user = node["author"].get("user")
     return CommitInfo(
         oid=node["oid"],
-        message=node["message"],
         author_email=node["author"].get("email") or "",
         author_login=user["login"] if user else None,
         is_root=node["parents"]["totalCount"] == 0,
@@ -74,17 +70,6 @@ def _commit(node: dict[str, Any], merged: frozenset[str]) -> CommitInfo:
         # pull request merged moments ago is recognized from the pull request's side as well.
         from_merged_pr=node["oid"] in merged
         or any(pr["merged"] for pr in node["associatedPullRequests"]["nodes"]),
-    )
-
-
-def _merged_pr(node: dict[str, Any]) -> MergedPr:
-    return MergedPr(
-        number=node["number"],
-        title=node["title"],
-        body=node["body"] or "",
-        head_ref=node["headRefName"],
-        author_login=node["author"]["login"] if node["author"] else "ghost",
-        references_issue=node["closingIssuesReferences"]["totalCount"] > 0,
     )
 
 
@@ -124,11 +109,6 @@ class StandardsClient:
             paths=frozenset(item["path"] for item in tree["tree"] if item["type"] == "blob"),
             required_checks=await self._dependabot.required_checks(repo, branch),
             commits=[_commit(node, merged) for node in branch_ref["target"]["history"]["nodes"]],
-            merged_prs=[
-                _merged_pr(node)
-                for node in into_branch
-                if datetime.fromisoformat(node["mergedAt"]) >= since
-            ],
         )
 
     async def standards_issues(

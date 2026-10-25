@@ -38,7 +38,7 @@ These would make it a failure even if everything else works:
 - Two Dependabot updates merged into a combination that CI never tested.
 - Issue noise: a new issue on every run, or an issue body that pings people.
 - Private repository data reachable from the public internet.
-- The App itself leaving an AI trace: its issue bodies, labels and comments must not name any AI assistant, even when reporting such a trace in a repository (say "commit `abc1234` carries an AI attribution trace", never quote the term).
+- The App itself leaving an AI trace: its issue bodies, labels and comments must not name any AI assistant.
 
 ## Constraints
 
@@ -82,13 +82,13 @@ These would make it a failure even if everything else works:
 | CI/CD | `.github/dependabot.yml` exists and covers `github-actions` plus each package ecosystem detected from the repository's manifest files |
 | CI/CD | `main` is protected with at least one required status check |
 | Flow | Every commit on `main` came from a merged pull request |
-| Flow | Every merged pull request references an issue (`Closes`, `Fixes` or `Resolves #N`) |
 | Identity | Every commit on `main` is authored with the configured email (`ismaleonsaenz@gmail.com`, set as configuration, not hard-coded) |
-| No AI trace | No AI assistant named in commit messages, co-author trailers, PR titles or bodies, or branch names |
 | Docs | The README has a banner image, status badges, a Mermaid diagram and the section order defined by the `docs-sync` skill in `Isma-L154/agent-skills` |
 | Security | `AGENTS.md` exists and states each of the seven baseline controls as implemented or N/A with a reason |
 
-Checks about commits and pull requests look only at activity since the previous run, and the last 30 days on a repository's first run, so old history from before the rules existed is not flagged. **(builder's call, settled)**
+Two rules were dropped on 2026-10-24: "every merged pull request references an issue" (not every change needs one) and "no AI trace in commits, pull requests or branch names" (the owner applies it to their own work; Steward does not audit it).
+
+Checks about commits look only at activity since the previous run, and the last 30 days on a repository's first run, so old history from before the rules existed is not flagged. **(builder's call, settled)**
 
 **Reporting:** one issue per repository titled "Repository standards", labelled `standards`, opened by the App, with one checkbox per failing rule and a link to the offending file, commit or pull request. Each run updates the same issue; when everything passes it is closed; if something breaks again it is reopened, not duplicated. An issue the owner closes while it still lists findings dismisses them: Steward closes its own issue with a body that lists nothing, so it never reopens one that still lists findings, leaves dismissed findings out of every later body, and opens a new issue only for findings that were not dismissed. Reopening the issue by hand undoes the dismissal. Text taken from the repository (file names, PR titles) is escaped so it cannot render as a mention, link or markup in the issue.
 

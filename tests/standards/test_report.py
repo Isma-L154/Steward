@@ -39,7 +39,7 @@ def test_hostile_file_name_stays_inert() -> None:
 
 def test_body_never_mentions_anyone() -> None:
     body = render_body(
-        REPO, [Finding("ai-trace", "Commit [abc1234](https://x) carries an AI attribution")]
+        REPO, [Finding("direct-push", "Commit [abc1234](https://x) went straight to `main`")]
     )
     assert "@" not in _outside_code(body)
 

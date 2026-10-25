@@ -12,7 +12,6 @@ NOW = datetime(2026, 10, 19, 6, 0, tzinfo=UTC)
 FAILING = snapshot(required_checks=frozenset())
 TWICE_FAILING = snapshot(required_checks=frozenset(), readme=None)
 PASSING = snapshot()
-TRUSTED = frozenset({"dependabot", "dependabot[bot]", "app-steward", "app-steward[bot]"})
 
 
 def _service(github: FakeStandardsGitHub) -> StandardsService:
@@ -20,7 +19,7 @@ def _service(github: FakeStandardsGitHub) -> StandardsService:
 
 
 def _findings(repo_snapshot: RepoSnapshot) -> list[Finding]:
-    return run_checks(repo_snapshot, OWNER_EMAIL, TRUSTED)
+    return run_checks(repo_snapshot, OWNER_EMAIL)
 
 
 def _failing_body() -> str:

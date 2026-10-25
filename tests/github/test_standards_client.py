@@ -10,7 +10,7 @@ from steward.github.client import GitHubClient
 from steward.github.models import RepoRef, TrackingIssue
 from steward.github.standards_client import StandardsClient
 from steward.standards.flow import check_no_direct_push
-from steward.standards.snapshot import CommitInfo, MergedPr
+from steward.standards.snapshot import CommitInfo
 from tests.github.fake_http import FakeHttp
 from tests.github.signer import CryptographySigner
 
@@ -20,7 +20,7 @@ SINCE = datetime(2026, 9, 18, tzinfo=UTC)
 BOT_EMAIL = "49699333+dependabot[bot]@users.noreply.github.com"
 
 
-def _commit(oid: str, message: str, *, kind: str = "human") -> Any:
+def _commit(oid: str, *, kind: str = "human") -> Any:
     email, login, merged = {
         "human": ("ismaleonsaenz@gmail.com", "Isma-L154", True),
         # Pushed seconds ago: GitHub has not linked it to its pull request yet.
@@ -30,32 +30,20 @@ def _commit(oid: str, message: str, *, kind: str = "human") -> Any:
     }[kind]
     return {
         "oid": oid,
-        "message": message,
         "parents": {"totalCount": 0 if kind == "root" else 1},
         "author": {"email": email, "user": None if login is None else {"login": login}},
         "associatedPullRequests": {"nodes": [{"merged": True}] if merged else []},
     }
 
 
-def _pr(number: int, base: str, merged_at: str, author: str | None, closes: int) -> Any:
-    return {
-        "number": number,
-        "title": f"PR {number}",
-        "body": "Closes #2" if closes else "",
-        "headRefName": f"feature/{number}",
-        "baseRefName": base,
-        "mergedAt": merged_at,
-        "author": None if author is None else {"login": author},
-        "closingIssuesReferences": {"totalCount": closes},
-        "mergeCommit": None,
-        "commits": {"nodes": []},
-    }
+def _pr(base: str) -> Any:
+    return {"baseRefName": base, "mergeCommit": None, "commits": {"nodes": []}}
 
 
-def _landed(number: int, base: str, merge_commit: str, *commits: str) -> Any:
+def _landed(base: str, merge_commit: str, *commits: str) -> Any:
     """A pull request merged moments ago, with the commits it brought."""
     return {
-        **_pr(number, base, "2026-10-20T01:58:00Z", "Isma-L154", 1),
+        **_pr(base),
         "mergeCommit": {"oid": merge_commit},
         "commits": {"nodes": [{"commit": {"oid": oid}} for oid in commits]},
     }
@@ -68,9 +56,9 @@ def _repository(**changes: Any) -> dict[str, Any]:
             "target": {
                 "history": {
                     "nodes": [
-                        _commit("a" * 40, "feat: x"),
-                        _commit("b" * 40, "Bump x", kind="bot"),
-                        _commit("c" * 40, "Initial commit", kind="root"),
+                        _commit("a" * 40),
+                        _commit("b" * 40, kind="bot"),
+                        _commit("c" * 40, kind="root"),
                     ]
                 }
             },
@@ -88,9 +76,8 @@ def _repository(**changes: Any) -> dict[str, Any]:
         },
         "pullRequests": {
             "nodes": [
-                _pr(3, "main", "2026-10-01T10:00:00Z", "Isma-L154", 1),
-                _pr(1, "main", "2026-08-01T10:00:00Z", "Isma-L154", 0),
-                _pr(4, "dev", "2026-10-02T10:00:00Z", None, 0),
+                _pr("main"),
+                _pr("dev"),
             ]
         },
     }
@@ -148,12 +135,9 @@ async def test_snapshot_maps_the_repository(http: FakeHttp, client: StandardsCli
     assert snapshot.paths == {"package.json", "src/app.ts"}
     assert snapshot.required_checks == {"test"}
     assert list(snapshot.commits) == [
-        CommitInfo("a" * 40, "feat: x", "ismaleonsaenz@gmail.com", "Isma-L154", False, True),
-        CommitInfo("b" * 40, "Bump x", BOT_EMAIL, None, False, False),
-        CommitInfo("c" * 40, "Initial commit", "x@example.com", None, True, False),
-    ]
-    assert list(snapshot.merged_prs) == [
-        MergedPr(3, "PR 3", "Closes #2", "feature/3", "Isma-L154", True)
+        CommitInfo("a" * 40, "ismaleonsaenz@gmail.com", "Isma-L154", False, True),
+        CommitInfo("b" * 40, BOT_EMAIL, None, False, False),
+        CommitInfo("c" * 40, "x@example.com", None, True, False),
     ]
 
 
@@ -178,12 +162,12 @@ async def test_just_merged_pull_request_vouches_for_its_unlinked_commits(
     merge, work = "d" * 40, "e" * 40
     repository = _repository(
         defaultBranchRef=_history(
-            _commit(merge, "Merge pull request #5", kind="unlinked"),
-            _commit(work, "fix: y", kind="unlinked"),
+            _commit(merge, kind="unlinked"),
+            _commit(work, kind="unlinked"),
         ),
         pullRequests={
             "nodes": [
-                _landed(5, "main", merge, work),
+                _landed("main", merge, work),
             ]
         },
     )
@@ -198,12 +182,12 @@ async def test_unlinked_commit_outside_every_pull_request_is_a_direct_push(
     http: FakeHttp, client: StandardsClient
 ) -> None:
     repository = _repository(
-        defaultBranchRef=_history(_commit("f" * 40, "fix: z", kind="unlinked")),
+        defaultBranchRef=_history(_commit("f" * 40, kind="unlinked")),
         pullRequests={
             "nodes": [
-                _landed(5, "main", "d" * 40, "e" * 40),
+                _landed("main", "d" * 40, "e" * 40),
                 # A pull request into another branch says nothing about main.
-                _landed(6, "dev", "1" * 40, "f" * 40),
+                _landed("dev", "1" * 40, "f" * 40),
             ]
         },
     )
