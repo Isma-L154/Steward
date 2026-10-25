@@ -11,7 +11,7 @@ ISSUE_LABEL = "standards"
 _TITLES = {rule.id: rule.title for rule in RULES}
 _FOOTER = (
     "Kept up to date by Steward on every push to the default branch and every Monday. "
-    f"Commits and pull requests are checked over the last {WINDOW_DAYS} days. "
+    f"Commits are checked over the last {WINDOW_DAYS} days. "
     "Closing this issue dismisses the findings it lists."
 )
 _ITEM = re.compile(r"^- \[[ xX]\] (.+)$", re.MULTILINE)

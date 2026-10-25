@@ -9,21 +9,10 @@ WINDOW_DAYS = 30
 @dataclass(frozen=True)
 class CommitInfo:
     oid: str
-    message: str
     author_email: str
     author_login: str | None
     is_root: bool
     from_merged_pr: bool
-
-
-@dataclass(frozen=True)
-class MergedPr:
-    number: int
-    title: str
-    body: str
-    head_ref: str
-    author_login: str
-    references_issue: bool
 
 
 @dataclass(frozen=True)
@@ -38,7 +27,6 @@ class RepoSnapshot:
     paths: frozenset[str]
     required_checks: frozenset[str]
     commits: Sequence[CommitInfo]
-    merged_prs: Sequence[MergedPr]
 
 
 @dataclass(frozen=True)

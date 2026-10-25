@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from steward.github.models import RepoRef
-from steward.standards.snapshot import CommitInfo, MergedPr, RepoSnapshot
+from steward.standards.snapshot import CommitInfo, RepoSnapshot
 
 ROOT = Path(__file__).parent.parent.parent
 OWNER_EMAIL = "ismaleonsaenz@gmail.com"
@@ -57,23 +57,10 @@ updates:
 def commit(**changes: Any) -> CommitInfo:
     base = CommitInfo(
         oid="a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
-        message="feat: something useful",
         author_email=OWNER_EMAIL,
         author_login="Isma-L154",
         is_root=False,
         from_merged_pr=True,
-    )
-    return replace(base, **changes)
-
-
-def merged_pr(**changes: Any) -> MergedPr:
-    base = MergedPr(
-        number=12,
-        title="Add something useful",
-        body="Closes #11",
-        head_ref="feature/something",
-        author_login="Isma-L154",
-        references_issue=True,
     )
     return replace(base, **changes)
 
@@ -101,6 +88,5 @@ def snapshot(**changes: Any) -> RepoSnapshot:
         ),
         required_checks=frozenset({"test"}),
         commits=[commit()],
-        merged_prs=[merged_pr()],
     )
     return replace(base, **changes)

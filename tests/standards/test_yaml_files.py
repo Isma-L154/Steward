@@ -47,7 +47,7 @@ def test_invalid_yaml_is_none() -> None:
 def test_oversized_workflow_is_unreadable_and_never_parsed(parsed: list[str]) -> None:
     big = _oversized(CI)
     repo = snapshot(workflows={"ci.yml": CI, "big.yml": big})
-    findings = run_checks(repo, OWNER_EMAIL, frozenset())
+    findings = run_checks(repo, OWNER_EMAIL)
     assert [f.rule for f in findings if f.rule == "workflow-unreadable"] == ["workflow-unreadable"]
     assert "`big.yml`" in next(f.detail for f in findings if f.rule == "workflow-unreadable")
     assert big not in parsed
