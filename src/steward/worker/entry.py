@@ -125,8 +125,8 @@ class Default(WorkerEntrypoint):
         try:
             audited = await run_weekly_sweep(self.env)
             print(f"weekly sweep audited {audited} repositories")
-        except (MissingConfig, GitHubError) as error:
-            print(f"weekly sweep failed: {error}")
+        except Exception as error:
+            print(f"weekly sweep failed: {type(error).__name__}: {error}")
         # The report reads GitHub's current state, so it is built even after a failed sweep.
         try:
             report = await self.env.HUB_DATA.getByName("hub").fetch(
