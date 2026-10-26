@@ -154,5 +154,5 @@ QA gate before merge: `code-review` + `differential-review` + (playwright e2e if
 - Don't force a skill that doesn't fit the task just because it's listed here — this file sets *default* discipline and *when* to reach for each tool, not a mandatory checklist for every single change.
 - Project-specific overrides always win over the general defaults above — if a section below contradicts something above, follow the section below.
 
-- `pydantic` and `pydantic-core` are pinned to the versions on the Pyodide index the Workers runtime uses; they are excluded from the uv cooldown and from Dependabot. Bump them only together with the runtime, and confirm with `uv run pywrangler sync`.
+- `pydantic`, `pydantic-core` and `pyyaml` are pinned to the versions on the Pyodide index the Workers runtime uses; they are excluded from the uv cooldown and from Dependabot. Bump them only together with the runtime, and confirm with `uv run pywrangler sync`.
 - The App must never leave an AI trace: its comments, labels and issue bodies never name an AI assistant.
