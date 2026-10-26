@@ -14,6 +14,18 @@ class InvalidPayload(Exception):
     """The webhook body is not the shape this App relies on."""
 
 
+def is_acceptable_length(declared: str | None) -> bool:
+    """A Content-Length small enough to read. HTTP allows only ASCII digits; `isdigit` alone
+    accepts other digits that `int` rejects, and `int` refuses strings past 4300 digits."""
+    return (
+        declared is not None
+        and declared.isascii()
+        and declared.isdigit()
+        and len(declared) <= len(str(MAX_BODY_BYTES))
+        and int(declared) <= MAX_BODY_BYTES
+    )
+
+
 @dataclass(frozen=True)
 class PullRequestToEvaluate:
     installation_id: int
