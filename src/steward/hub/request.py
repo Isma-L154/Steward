@@ -14,7 +14,7 @@ class Rejection:
 def check_caller(caller: object) -> Rejection | None:
     """The caller comes from the service binding's `props`, which only the account's
     deployers can set; anything but the hub's exact value is refused."""
-    if caller == HUB_CALLER and isinstance(caller, str):
+    if isinstance(caller, str) and caller == HUB_CALLER:
         return None
     return Rejection(HTTPStatus.FORBIDDEN, "forbidden")
 
