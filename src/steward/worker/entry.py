@@ -11,10 +11,10 @@ from steward.github.app_auth import uninstall
 from steward.github.http import GitHubError
 from steward.github.models import Installation
 from steward.webhooks.events import (
-    MAX_BODY_BYTES,
     InvalidPayload,
     delivery_installation,
     installation_to_remove,
+    is_acceptable_length,
     pull_requests_to_evaluate,
     pushes_to_default,
 )
@@ -51,8 +51,7 @@ class Default(WorkerEntrypoint):
             return error_response("rate_limited", HTTPStatus.TOO_MANY_REQUESTS)
         # Only a body that declares a small enough length is read, so a large or unannounced
         # (chunked) one is never buffered.
-        declared = request.headers.get("Content-Length")
-        if declared is None or not declared.isdigit() or int(declared) > MAX_BODY_BYTES:
+        if not is_acceptable_length(request.headers.get("Content-Length")):
             return error_response("payload_too_large", HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
         body = await request.bytes()
         signature = request.headers.get("X-Hub-Signature-256")
