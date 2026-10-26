@@ -74,9 +74,9 @@ def _commit(node: dict[str, Any], merged: frozenset[str]) -> CommitInfo:
 
 
 class StandardsClient:
-    def __init__(self, api: GitHubApi, dependabot: GitHubClient) -> None:
+    def __init__(self, api: GitHubApi, rest: GitHubClient) -> None:
         self._api = api
-        self._dependabot = dependabot
+        self._rest = rest
 
     async def snapshot(self, repo: RepoRef, since: datetime) -> RepoSnapshot | None:
         variables = {"owner": repo.owner, "name": repo.name, "since": since.isoformat()}
@@ -107,7 +107,7 @@ class StandardsClient:
                 and (text := _text(entry["object"])) is not None
             },
             paths=frozenset(item["path"] for item in tree["tree"] if item["type"] == "blob"),
-            required_checks=await self._dependabot.required_checks(repo, branch),
+            required_checks=await self._rest.required_checks(repo, branch),
             commits=[_commit(node, merged) for node in branch_ref["target"]["history"]["nodes"]],
         )
 
