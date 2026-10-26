@@ -2,6 +2,7 @@ import base64
 import json
 from collections.abc import Callable, Mapping
 from datetime import datetime
+from http import HTTPStatus
 from typing import Any, Protocol
 
 from steward.github.http import GitHubError, HttpClient, answer_detail
@@ -48,7 +49,7 @@ async def _app_call(http: HttpClient, jwt: str, method: str, path: str, ok: int)
 
 async def bot_login(http: HttpClient, app_id: str, signer: Signer, now: int) -> str:
     """The login this App's commits and comments carry, e.g. `app-steward[bot]`."""
-    app = await _app_call(http, await app_jwt(app_id, signer, now), "GET", "/app", 200)
+    app = await _app_call(http, await app_jwt(app_id, signer, now), "GET", "/app", HTTPStatus.OK)
     return f"{app['slug']}[bot]"
 
 
@@ -56,7 +57,7 @@ async def installations(
     http: HttpClient, app_id: str, signer: Signer, now: int
 ) -> list[Installation]:
     jwt = await app_jwt(app_id, signer, now)
-    items = await _app_call(http, jwt, "GET", "/app/installations?per_page=100", 200)
+    items = await _app_call(http, jwt, "GET", "/app/installations?per_page=100", HTTPStatus.OK)
     return [
         Installation(int(item["id"]), (item.get("account") or {}).get("login", ""))
         for item in items
@@ -69,11 +70,13 @@ async def uninstall(
     """Removes the App from another account. The App's own account is never removed, whatever
     the configuration says: a mistyped owner must not uninstall the owner."""
     jwt = await app_jwt(app_id, signer, now)
-    app = await _app_call(http, jwt, "GET", "/app", 200)
+    app = await _app_call(http, jwt, "GET", "/app", HTTPStatus.OK)
     if installation.account.lower() == str(app["owner"]["login"]).lower():
         print(f"installation {installation.id}: refusing to uninstall the App's own account")
         return False
-    await _app_call(http, jwt, "DELETE", f"/app/installations/{installation.id}", 204)
+    await _app_call(
+        http, jwt, "DELETE", f"/app/installations/{installation.id}", HTTPStatus.NO_CONTENT
+    )
     return True
 
 
@@ -110,7 +113,7 @@ class InstallationTokens:
         jwt = await app_jwt(self._app_id, self._signer, int(self._clock()))
         headers = {**API_HEADERS, "Authorization": f"Bearer {jwt}"}
         response = await self._http.request("POST", f"{API}{path}", headers, self._body)
-        if response.status != 201:  # noqa: PLR2004 - GitHub's "Created"
+        if response.status != HTTPStatus.CREATED:
             raise GitHubError(response.status, path, answer_detail(response.body))
         body = json.loads(response.body)
         # GitHub states the token's permissions; one wider than asked must never be used.
