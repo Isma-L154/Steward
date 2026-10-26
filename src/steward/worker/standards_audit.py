@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 from datetime import UTC, datetime
@@ -21,10 +22,12 @@ from steward.worker.webcrypto import WebCryptoSigner
 
 
 class StandardsAudit(DurableObject):
-    """Audits one repository per call: every audit gets its own budget of 50 subrequests."""
+    """Audits one repository per call: every audit gets its own budget of 50 subrequests.
+    One instance per repository, so its audits run one at a time."""
 
     def __init__(self, ctx: Any, env: Any) -> None:
         super().__init__(ctx, env)
+        self._lock = asyncio.Lock()
         self._http = WorkersFetch()
         self._tokens: InstallationTokens | None = None
         self._own_login: str | None = None
@@ -47,18 +50,21 @@ class StandardsAudit(DurableObject):
         if self._tokens is None:
             self._tokens = InstallationTokens(self._http, config.app_id, signer, time.time)
         try:
-            if self._own_login is None:
-                self._own_login = await bot_login(
-                    self._http, config.app_id, signer, int(time.time())
+            # The object uses no storage, so its input gate stays open while an audit awaits
+            # GitHub: without the lock, two overlapping audits could both open an issue.
+            async with self._lock:
+                if self._own_login is None:
+                    self._own_login = await bot_login(
+                        self._http, config.app_id, signer, int(time.time())
+                    )
+                api = GitHubApi(self._http, self._tokens, job["installation_id"])
+                service = StandardsService(
+                    StandardsClient(api, GitHubClient(api)),
+                    config.owner_email,
+                    self._own_login,
+                    lambda: datetime.now(UTC),
                 )
-            api = GitHubApi(self._http, self._tokens, job["installation_id"])
-            service = StandardsService(
-                StandardsClient(api, GitHubClient(api)),
-                config.owner_email,
-                self._own_login,
-                lambda: datetime.now(UTC),
-            )
-            findings = await service.audit(repo)
+                findings = await service.audit(repo)
         except GitHubError as error:
             print(f"{repo.full_name}: {error}")
             return error_response("github_error", HTTPStatus.BAD_GATEWAY)
