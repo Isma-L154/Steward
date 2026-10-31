@@ -75,6 +75,7 @@ class PullRequest:
 class BranchPush:
     actor: str | None
     after: str
+    replaces_branch: bool = False
 
 
 @dataclass(frozen=True)

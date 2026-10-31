@@ -66,7 +66,7 @@ class DependabotService:
             authored_by_dependabot=bool(commits)
             and commits[0].author == DEPENDABOT_LOGIN
             and all(commit.author in self._trusted_authors for commit in commits),
-            pushes=push_trust(activity, self._trusted_authors, pr.head_sha),
+            pushes=push_trust(activity, self._trusted_authors, DEPENDABOT_LOGIN, pr.head_sha),
             open=pr.state == "open" and not pr.draft,
             update_type=classify(commits[0].message) if commits else UpdateType.MAJOR,
             verdict=ci_verdict(results, required),

@@ -87,7 +87,11 @@ class GitHubClient:
             f"/repos/{repo.full_name}/activity?ref={ref}&per_page={_ACTIVITY_PAGE}"
         )
         pushes = tuple(
-            BranchPush((item.get("actor") or {}).get("login"), item["after"])
+            BranchPush(
+                (item.get("actor") or {}).get("login"),
+                item["after"],
+                replaces_branch=item["activity_type"] in {"force_push", "branch_creation"},
+            )
             for item in items
             if item["activity_type"] != "branch_deletion"
         )

@@ -219,6 +219,26 @@ async def test_branch_updated_by_steward_is_still_trusted() -> None:
     assert (await _service(github).evaluate(REPO, 7)).kind is Kind.MERGE
 
 
+async def test_dependabot_force_push_restores_trust_after_owner_branch_updates() -> None:
+    activity = BranchActivity(
+        (
+            BranchPush(DEPENDABOT, "abc", replaces_branch=True),
+            BranchPush("Isma-L154", "merge3"),
+            BranchPush("Isma-L154", "merge2"),
+            BranchPush("Isma-L154", "merge1"),
+            BranchPush(DEPENDABOT, "old", replaces_branch=True),
+        ),
+        complete=True,
+    )
+    github = FakeGitHub(pr=dependabot_pr(labels=frozenset({"update-blocked"})), activity=activity)
+    assert await _service(github).evaluate(REPO, 7) == Decision(Kind.MERGE)
+    assert github.writes == [
+        ("remove_label", 7, "update-blocked"),
+        ("approve", 7, "abc"),
+        ("merge", 7, "abc", "squash"),
+    ]
+
+
 async def test_activity_behind_the_head_waits() -> None:
     github = FakeGitHub(activity=BranchActivity((BranchPush(DEPENDABOT, "old"),), True))
     assert (await _service(github).evaluate(REPO, 7)).kind is Kind.NOTHING
