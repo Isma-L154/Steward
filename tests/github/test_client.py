@@ -361,9 +361,9 @@ async def test_branch_activity_lists_who_pushed_newest_first(
     activity = await client.branch_activity(REPO, "dependabot/npm/left-pad-2")
     assert activity == BranchActivity(
         (
-            BranchPush("app-steward[bot]", "bbb"),
-            BranchPush(None, "aab"),
-            BranchPush("dependabot[bot]", "aaa"),
+            BranchPush("app-steward[bot]", "bbb", replaces_branch=False),
+            BranchPush(None, "aab", replaces_branch=True),
+            BranchPush("dependabot[bot]", "aaa", replaces_branch=True),
         ),
         complete=True,
     )
