@@ -62,7 +62,7 @@ All times are ISO 8601 UTC with `Z`.
 
 ## `GET /v1/report`
 
-The weekly report of pending work, built every Monday after the 06:00 UTC sweep (and once on the first request if none exists yet). A failed build keeps the previous report, so `generated_at` always says how old it is.
+Pending work, read from GitHub together with health at most once every 5 minutes. Both answers come from the same read. A failed read answers 502, like health; nothing stale is served.
 
 ```json
 {

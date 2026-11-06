@@ -26,6 +26,9 @@ class CountingSource:
     calls: int = 0
     fail: bool = False
     gate: asyncio.Event | None = None
+    repos: list[HubRepo] = field(
+        default_factory=lambda: [HubRepo(RepoRef("o", "a"), ci_state="SUCCESS")]
+    )
 
     async def __call__(self) -> list[HubRepo]:
         self.calls += 1
@@ -33,7 +36,7 @@ class CountingSource:
             await self.gate.wait()
         if self.fail:
             raise GitHubError(502, "/graphql")
-        return [HubRepo(RepoRef("o", "a"), ci_state="SUCCESS")]
+        return self.repos
 
 
 @dataclass
