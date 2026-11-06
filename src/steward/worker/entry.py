@@ -127,12 +127,3 @@ class Default(WorkerEntrypoint):
             print(f"weekly sweep audited {audited} repositories")
         except Exception as error:
             print(f"weekly sweep failed: {type(error).__name__}: {error}")
-        # The report reads GitHub's current state, so it is built even after a failed sweep.
-        try:
-            report = await self.env.HUB_DATA.getByName("hub").fetch(
-                "https://hub/build-report", method="POST"
-            )
-            print(f"weekly report answered {report.status}")
-        except Exception as error:
-            # The type only, as at the hub API boundary: the message may carry upstream content.
-            print(f"weekly report failed: {type(error).__name__}")

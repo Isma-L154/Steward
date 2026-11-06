@@ -25,7 +25,6 @@ from steward.worker.webcrypto import WebCryptoSigner
 _ROUTES: dict[tuple[str, str], Callable[[HubService], Awaitable[dict[str, Any]]]] = {
     ("GET", "/health"): HubService.health,
     ("GET", "/report"): HubService.report,
-    ("POST", "/build-report"): HubService.build_report,
 }
 
 
@@ -42,7 +41,7 @@ class DurableObjectHubStore:
 
 
 class HubData(DurableObject):
-    """The single object behind the hub API: its health cache, its stored weekly report and
+    """The single object behind the hub API: its 5-minute health and report cache and
     the lock that keeps concurrent callers to one GitHub refresh."""
 
     def __init__(self, ctx: Any, env: Any) -> None:
